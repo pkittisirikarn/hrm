@@ -9,3 +9,140 @@ passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
 jinja2==3.1.4 # <--- เพิ่ม Jinja2 สำหรับ Template Rendering
 python-multipart==0.0.9 # <--- เพิ่มสำหรับจัดการ Form Data และ File Uploads
+
+
+
+
+HRM Project
+> __pycache__
+> .venv
+> auth
+ - __init__.py
+ - dependencies.py
+ - security.py
+> config
+ > __pycache__
+ - __init__.py
+ - settings.py
+> database
+ > __pycache__
+ - __init__.py
+ - base.py
+ - connection.py
+> models
+ > __pycache__
+ - __init__.py
+ - role.py
+ - user.py
+> modules
+ > dashboard
+   - __init__.py
+   - routes.py
+   - schemas.py
+   - services.py
+ > data_management
+   > __pycache__
+   - __init__.py
+   - models.py
+   - routes.py
+   - schemas.py
+   - services.py
+ > meeting
+   - __init__.py
+   - models.py
+   - routes.py
+   - schemas.py
+   - services.py
+ > payroll
+   > __pycache__
+   - __init__.py
+   - models.py
+   - routes.py
+   - schemas.py
+   - services.py
+ > recruitment
+   - __init__.py
+   - models.py
+   - routes.py
+   - schemas.py
+   - services.py
+ > time_tracking
+   > __pycache__
+   - __init__.py
+   - models.py
+   - routes.py
+   - schemas.py
+   - services.py
+ > schemas
+   > __pycache__
+   - __init__.py
+   - token.py
+   - user.py
+ > scripts
+   > __pycache__
+   - __init__.py
+   - migrate_add_scheme_id.py
+ > static
+   > css
+   > images
+   > js
+     > data_management
+	 - department.js
+	 - employeees.js
+	 - positions.js
+	 > payroll
+	 - allowance_types.js
+	 - deduction_types.js
+	 - employee_allowances.js
+	 - payroll_entries.js
+	 - payroll_runs.js
+	 - salary_structures.js
+	 > time_tracking
+	 - attendance_tools.js
+	 - holiday.js
+	 - leave_request.js
+	 - leave_types.js
+	 - ot_request_edit.js
+	 - ot_requests.js
+	 - ot_types.js
+	 - report.js
+	 - time_entries.js
+	 - working_schedules.js
+     script.js
+   > templates
+   > uploads
+ > templates
+   > data_management
+   - departments.html
+   - employeees.html
+   - positions.html
+   > payroll
+   - allowance_types.html
+   - deduction_types.html
+   - employee_allowances.html
+   - employee_deductions.html
+   - payroll_calc.html
+   - payroll_entries.html
+   - payroll_runs.html
+   - payslip.html
+   - salary_structures.html
+   > time_tracking
+   - holidays.html
+   - leave_requests.html
+   - leave_types.html
+   - ot_request_edit.html
+   - ot_requests.html
+   - ot_types.html
+   - report.html
+   - time_entries.html
+   - working_schedules.html
+  - base.html
+  - dashboard.html
+  - index.html
+> .env
+> .gitignore
+> hrm.db
+> main.py
+> README.md
+> requirement.txt
+> sql_app.db
