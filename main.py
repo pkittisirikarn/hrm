@@ -15,6 +15,12 @@ from modules.payroll import routes as payroll_routes
 from modules.time_tracking import routes as time_tracking_routes
 
 from database.connection import create_all_tables, SessionLocal, engine
+from modules.meeting.routes import api as meeting_api, pages as meeting_pages
+from database.base import Base
+from database.connection import engine
+from modules.data_management.migrations import migrate_employees_contact_columns
+from modules.meeting.migrations import migrate_meeting_rooms_columns
+
 
 # Windows event loop policy (dev on Windows)
 if sys.platform.startswith("win"):
@@ -43,12 +49,26 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 app.state.templates = templates
 
+app.include_router(meeting_api)
+app.include_router(meeting_pages)
 
 @app.on_event("startup")
 def on_startup():
     print("Creating all database tables...")
     create_all_tables()
     print("Database tables created successfully.")
+    
+    try:
+        migrate_employees_contact_columns(engine)
+        print("✓ Migrated employees: added email/phone_number if missing.")
+    except Exception as e:
+        print(f"⚠️ Migrate warning (employees contact columns): {e}")
+        
+    try:
+        migrate_meeting_rooms_columns(engine)
+        print("✓ Migrated meeting_rooms: ensured notes (and is_active) columns.")
+    except Exception as e:
+        print(f"⚠️ Migrate warning (meeting_rooms): {e}")
 
     # --- Lightweight migrate: working_schedules add new columns if missing ---
     try:
