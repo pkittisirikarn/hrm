@@ -1,0 +1,46 @@
+/* ===== Payroll Entries Toolbar (สไตล์เบาๆ ใช้ได้ทันที) ===== */
+.pe-toolbar {
+  margin: 14px 0 12px;
+  padding: 12px;
+  border: 1px solid #e5e7eb; /* gray-200 */
+  border-radius: 12px;
+  background: linear-gradient(135deg,#f8fafc,#ffffff);
+}
+.pe-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px 12px;
+  align-items: end;
+}
+@media (max-width: 1100px) {
+  .pe-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .pe-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.pe-field { display: flex; flex-direction: column; gap: 6px; }
+.pe-field label { font-size: 12px; color: #6b7280; } /* gray-500 */
+.pe-field input[type="text"],
+.pe-field input[type="date"],
+.pe-field select {
+  height: 36px; padding: 0 10px;
+  border: 1px solid #e5e7eb; border-radius: 10px;
+  background: #fff; color: #111827; /* gray-900 */
+}
+.pe-field select { padding-right: 28px; }
+
+.pe-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+
+.btn {
+  height: 36px; padding: 0 14px; border-radius: 10px;
+  border: 1px solid transparent; cursor: pointer; font-weight: 600;
+}
+.btn.primary {
+  background: #2563eb; color: #fff; /* blue-600 */
+  box-shadow: 0 1px 0 rgba(0,0,0,.03);
+}
+.btn.primary:hover { background: #1d4ed8; } /* blue-700 */
+.btn.ghost {
+  background: #fff; color: #374151; border-color: #e5e7eb; /* gray-700 / gray-200 */
+}
+.btn.ghost:hover { background: #f9fafb; }
