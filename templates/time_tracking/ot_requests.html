@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}ยื่นคำขอ OT{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <h1 class="text-2xl font-bold mb-4">จัดการคำขอทำงานล่วงเวลา (OT)</h1>
+
+  <!-- ฟอร์มสร้าง/แก้ไข -->
+  <form id="create-ot-request-form" class="bg-white rounded-lg shadow p-4 space-y-4">
+    <div class="flex items-center justify-between">
+      <div class="font-semibold">
+        <span id="formModeLabel">ยื่นคำขอ OT ใหม่</span>
+        <span id="editingBadge" class="ml-2 hidden text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800">โหมดแก้ไข</span>
+      </div>
+      <div class="space-x-2 hidden" id="editButtons">
+        <button id="btnSaveEdit" type="button" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">บันทึกการแก้ไข</button>
+        <button id="btnCancelEdit" type="button" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300">ยกเลิก</button>
+      </div>
+    </div>
+
+    <input type="hidden" id="editingId" />
+
+    <div>
+      <label for="employeeSelect" class="block text-sm font-medium mb-1">พนักงาน *</label>
+      <select id="employeeSelect" name="employee_id" class="w-full border rounded p-2" required></select>
+    </div>
+
+    <div>
+      <label for="otTypeSelect" class="block text-sm font-medium mb-1">ประเภท OT *</label>
+      <select id="otTypeSelect" name="ot_type_id" class="w-full border rounded p-2" required></select>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label for="startTime" class="block text-sm font-medium mb-1">เวลาเริ่มต้น *</label>
+        <input id="startTime" name="start_time" type="datetime-local" class="w-full border rounded p-2" required />
+      </div>
+      <div>
+        <label for="endTime" class="block text-sm font-medium mb-1">เวลาสิ้นสุด *</label>
+        <input id="endTime" name="end_time" type="datetime-local" class="w-full border rounded p-2" required />
+      </div>
+    </div>
+
+    <div>
+      <label for="reason" class="block text-sm font-medium mb-1">เหตุผล</label>
+      <textarea id="reason" name="reason" class="w-full border rounded p-2" rows="3" placeholder="ระบุเหตุผล (ถ้ามี)"></textarea>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button id="btnCreateOTRequest" type="button" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        ยื่นคำขอ OT
+      </button>
+      <div id="otRequestMsg" class="text-sm"></div>
+    </div>
+  </form>
+
+  <!-- ตารางรายการ -->
+  <div class="bg-white rounded-lg shadow p-4 mt-6">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-semibold">รายการคำขอ OT</h2>
+      <div class="text-sm text-gray-500">คลิก “แก้ไข” หรือ “อนุมัติ/ปฏิเสธ/รอ” ที่แต่ละรายการ</div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm border">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-3 py-2 border">ID</th>
+            <th class="px-3 py-2 border">พนักงาน</th>
+            <th class="px-3 py-2 border">ประเภท</th>
+            <th class="px-3 py-2 border">เริ่ม</th>
+            <th class="px-3 py-2 border">สิ้นสุด</th>
+            <th class="px-3 py-2 border">สถานะ</th>
+            <th class="px-3 py-2 border">การดำเนินการ</th>
+          </tr>
+        </thead>
+        <tbody id="otRequestsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script defer src="/static/js/time_tracking/ot_requests.js"></script>
+{% endblock %}

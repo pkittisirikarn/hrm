@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}หน้าแรก - {{ title }}{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center p-6">
+    <div class="bg-white p-8 rounded-lg shadow-xl text-center max-w-lg w-full">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-4 animate-fade-in-down">{{ title }}</h1>
+        <p class="text-gray-600 mb-6 text-lg animate-fade-in-up">ยินดีต้อนรับสู่ระบบจัดการทรัพยากรบุคคล!</p>
+        <a href="#" class="inline-block bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
+            เข้าสู่ระบบ
+        </a>
+        <p class="mt-8 text-sm text-gray-500">เวอร์ชัน 0.0.1</p>
+    </div>
+</div>
+
+<style>
+    @keyframes fadeInDown {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-down {
+        animation: fadeInDown 0.8s ease-out forwards;
+    }
+    .animate-fade-in-up {
+        animation: fadeInUp 0.8s ease-out forwards 0.2s; /* Delay for a nice sequence */
+    }
+</style>
+{% endblock %}

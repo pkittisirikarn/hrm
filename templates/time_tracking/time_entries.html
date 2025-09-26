@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}จัดการบันทึกเวลา{% endblock %}
+
+{% block head_extra %}
+<style>
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 1000; /* Sit on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+        overflow: auto; /* Enable scroll if needed */
+        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        justify-content: center;
+        align-items: center;
+    }
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Could be responsive */
+        max-width: 800px; /* Max width */
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-md p-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6">จัดการบันทึกเวลา</h2>
+
+    <!-- ส่วนสำหรับนำเข้าข้อมูลจากไฟล์ CSV/Excel -->
+    <div class="mb-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <h3 class="text-xl font-semibold text-gray-700 mb-4">นำเข้าข้อมูลลงเวลาจากไฟล์ CSV/Excel</h3>
+        <p class="text-sm text-gray-600 mb-3">โปรดอัปโหลดไฟล์ CSV หรือ Excel (.xlsx) ที่มีคอลัมน์ "Employee ID", "Name", "Time" ตามตัวอย่าง:
+            <a href="/static/templates/Transaction001.csv" download class="text-blue-600 hover:underline">ดาวน์โหลดไฟล์ตัวอย่าง Transaction001.csv</a>
+        </p>
+        <form id="importCsvForm" class="space-y-4">
+            <div>
+                <label for="importCsvFile" class="block text-sm font-medium text-gray-700 mb-1">เลือกไฟล์</label>
+                <input type="file" id="importCsvFile" name="file" accept=".csv, .xlsx" required
+                       class="mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-md cursor-pointer bg-white focus:outline-none file:py-2 file:px-4 file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            </div>
+            <button type="submit"
+                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                นำเข้าข้อมูล
+            </button>
+        </form>
+        <div id="importCsvMessage" class="mt-4 text-sm font-medium"></div>
+    </div>
+
+
+    <!-- ส่วนสำหรับเพิ่มบันทึกเวลาใหม่ (ปรับปรุง) -->
+    <div class="mb-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <h3 class="text-xl font-semibold text-gray-700 mb-4">เพิ่มบันทึกเวลาใหม่</h3>
+        <form id="addTimeEntryForm" class="space-y-4">
+            <div>
+                <label for="addEmployeeId" class="block text-sm font-medium text-gray-700 mb-1">พนักงาน <span class="text-red-500">*</span></label>
+                <select id="addEmployeeId" name="employee_id" required
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="">เลือกพนักงาน</option>
+                    <!-- Options will be loaded by JavaScript -->
+                </select>
+            </div>
+            <div>
+                <label for="addCheckInTime" class="block text-sm font-medium text-gray-700 mb-1">เวลาเข้างาน <span class="text-red-500">*</span></label>
+                <input type="datetime-local" id="addCheckInTime" name="check_in_time" required
+                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+            <div>
+                <label for="addCheckOutTime" class="block text-sm font-medium text-gray-700 mb-1">เวลาออกงาน</label>
+                <input type="datetime-local" id="addCheckOutTime" name="check_out_time"
+                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+            <div>
+                <label for="addNotes" class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
+                <textarea id="addNotes" name="notes" rows="2"
+                          class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
+            </div>
+            <div>
+                <label for="addStatus" class="block text-sm font-medium text-gray-700 mb-1">สถานะ <span class="text-red-500">*</span></label>
+                <select id="addStatus" name="status" required
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <option value="Pending">รออนุมัติ</option>
+                    <option value="Approved">อนุมัติแล้ว</option>
+                    <option value="Rejected">ไม่อนุมัติ</option>
+                </select>
+            </div>
+            <button type="submit"
+                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                เพิ่มบันทึกเวลา
+            </button>
+        </form>
+        <div id="addTimeEntryMessage" class="mt-4 text-sm font-medium"></div>
+    </div>
+
+    <!-- ส่วนสำหรับแสดงรายการบันทึกเวลา (ปรับปรุง) -->
+    <div>
+        <h3 class="text-xl font-semibold text-gray-700 mb-4">รายการบันทึกเวลา</h3>
+        <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            ID
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            รหัสพนักงาน
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            เวลาเข้างาน
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            เวลาออกงาน
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            สถานะ
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            การดำเนินการ
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="timeEntriesTableBody" class="bg-white divide-y divide-gray-200">
+                    <!-- ข้อมูลบันทึกเวลาจะถูกโหลดด้วย JavaScript ที่นี่ -->
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                            กำลังโหลดข้อมูล...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div id="timeEntriesMessage" class="mt-4 text-sm font-medium"></div>
+    </div>
+
+    <!-- Modal สำหรับแก้ไขบันทึกเวลา (ปรับปรุง) -->
+    <div id="editTimeEntryModal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold mb-4">แก้ไขบันทึกเวลา</h3>
+            <form id="editTimeEntryForm" class="space-y-4">
+                <input type="hidden" id="editTimeEntryId">
+                <div>
+                    <label for="editEmployeeId" class="block text-sm font-medium text-gray-700 mb-1">พนักงาน <span class="text-red-500">*</span></label>
+                    <select id="editEmployeeId" name="employee_id" required
+                            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        <option value="">เลือกพนักงาน</option>
+                        <!-- Options will be loaded by JavaScript -->
+                    </select>
+                </div>
+                <div>
+                    <label for="editCheckInTime" class="block text-sm font-medium text-gray-700 mb-1">เวลาเข้างาน <span class="text-red-500">*</span></label>
+                    <input type="datetime-local" id="editCheckInTime" name="check_in_time" required
+                           class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="editCheckOutTime" class="block text-sm font-medium text-gray-700 mb-1">เวลาออกงาน</label>
+                    <input type="datetime-local" id="editCheckOutTime" name="check_out_time"
+                           class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="editNotes" class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
+                    <textarea id="editNotes" name="notes" rows="2"
+                              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
+                </div>
+                <div>
+                    <label for="editStatus" class="block text-sm font-medium text-gray-700 mb-1">สถานะ <span class="text-red-500">*</span></label>
+                    <select id="editStatus" name="status" required
+                            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        <option value="Pending">รออนุมัติ</option>
+                        <option value="Approved">อนุมัติแล้ว</option>
+                        <option value="Rejected">ไม่อนุมัติ</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="closeEditModalButton"
+                            class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        ยกเลิก
+                    </button>
+                    <button type="submit"
+                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        บันทึก
+                    </button>
+                </div>
+            </form>
+            <div id="editTimeEntryMessage" class="mt-4 text-sm font-medium"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/time_tracking/time_entries.js"></script>
+{% endblock %}

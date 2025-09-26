@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}แก้ไขคำขอ OT{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">แก้ไขคำขอ OT</h1>
+    <div class="space-x-2">
+      <button id="btnSave" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">บันทึก</button>
+      <a href="/time-tracking/ot-requests" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300">ยกเลิก</a>
+    </div>
+  </div>
+
+  <form id="edit-form" class="bg-white rounded-lg shadow p-4 space-y-4">
+    <input type="hidden" id="recordId" />
+
+    <div>
+      <label for="employeeSelect" class="block text-sm font-medium mb-1">พนักงาน *</label>
+      <select id="employeeSelect" class="w-full border rounded p-2" required></select>
+    </div>
+
+    <div>
+      <label for="otTypeSelect" class="block text-sm font-medium mb-1">ประเภท OT *</label>
+      <select id="otTypeSelect" class="w-full border rounded p-2" required></select>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label for="startTime" class="block text-sm font-medium mb-1">เวลาเริ่มต้น *</label>
+        <input id="startTime" type="datetime-local" class="w-full border rounded p-2" required />
+      </div>
+      <div>
+        <label for="endTime" class="block text-sm font-medium mb-1">เวลาสิ้นสุด *</label>
+        <input id="endTime" type="datetime-local" class="w-full border rounded p-2" required />
+      </div>
+    </div>
+
+    <div>
+      <label for="reason" class="block text-sm font-medium mb-1">เหตุผล</label>
+      <textarea id="reason" class="w-full border rounded p-2" rows="3" placeholder="ระบุเหตุผล (ถ้ามี)"></textarea>
+    </div>
+
+    <p class="text-xs text-red-500">
+      Input should be 'Pending', 'Approved', 'Rejected' or 'Cancelled'
+    </p>
+
+    <div id="msg" class="text-sm"></div>
+  </form>
+</div>
+
+<script defer src="/static/js/time_tracking/ot_request_edit.js"></script>
+{% endblock %}

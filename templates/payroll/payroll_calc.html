@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}คำนวณเงินเดือน{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <h1 class="text-2xl font-bold mb-4">คำนวณเงินเดือนตามสูตร (Formula)</h1>
+
+  <div class="bg-white rounded shadow p-4 space-y-3">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div>
+        <label class="block text-sm font-medium">Scheme</label>
+        <select id="schemeSelect" class="w-full border rounded p-2">
+          <option value="{{ default_scheme_id }}">Default Scheme</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium">งวดเริ่ม (YYYY-MM-DD)</label>
+        <input id="periodStart" type="date" class="w-full border rounded p-2" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium">งวดสิ้นสุด (YYYY-MM-DD)</label>
+        <input id="periodEnd" type="date" class="w-full border rounded p-2" />
+      </div>
+      <div class="flex items-end">
+        <button id="btnPreview" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Preview</button>
+        <button id="btnRun" class="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 ml-2">Create Run</button>
+      </div>
+    </div>
+    <div id="msg" class="text-sm text-gray-600"></div>
+  </div>
+
+  <div class="bg-white rounded shadow p-4 mt-6 overflow-x-auto">
+    <table class="min-w-full text-sm border">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="border px-2 py-1">Emp</th>
+          <th class="border px-2 py-1">Base</th>
+          <th class="border px-2 py-1">OT hrs</th>
+          <th class="border px-2 py-1">OT pay</th>
+          <th class="border px-2 py-1">Unpaid hrs</th>
+          <th class="border px-2 py-1">Leave deduct</th>
+          <th class="border px-2 py-1">Gross</th>
+          <th class="border px-2 py-1">Net</th>
+          <th class="border px-2 py-1">Formulas</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyPreview"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = {
+  PREVIEW: "/api/v1/payroll/calc/preview",
+  RUN:     "/api/v1/payroll/calc/run",
+  SCHEMES: "/api/v1/payroll/schemes/",
+  FORMULA: "/api/v1/payroll/formulas/",
+};
+
+const $ = (s) => document.querySelector(s);
+const msg = (t,c="") => { const el=$("#msg"); el.textContent=t; el.className="text-sm "+c; };
+
+async function getJSON(u){ const r=await fetch(u); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+async function postJSON(u,p){ const r=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(p)}); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+
+async function loadSchemes(){
+  try{
+    const list = await getJSON(API.SCHEMES);
+    const sel = $("#schemeSelect");
+    sel.innerHTML = list.map(s=>`<option value="${s.id}">${s.name}</option>`).join("");
+  }catch(e){ console.error(e); }
+}
+
+async function preview(){
+  try{
+    const schemeId = $("#schemeSelect").value;
+    const ps = $("#periodStart").value;
+    const pe = $("#periodEnd").value;
+    const url = `${API.PREVIEW}?scheme_id=${encodeURIComponent(schemeId)}&period_start=${ps}&period_end=${pe}`;
+    const data = await getJSON(url);
+    const tb = $("#tbodyPreview");
+    tb.innerHTML = (data.items||[]).map(it=>`
+      <tr>
+        <td class="border px-2 py-1">${it.employee_name}</td>
+        <td class="border px-2 py-1" style="text-align:right">${it.base_salary.toFixed(2)}</td>
+        <td class="border px-2 py-1" style="text-align:right">${it.ot_hours.toFixed(2)}</td>
+        <td class="border px-2 py-1" style="text-align:right">${it.ot_pay.toFixed(2)}</td>
+        <td class="border px-2 py-1" style="text-align:right">${it.leave_unpaid_hours.toFixed(2)}</td>
+        <td class="border px-2 py-1" style="text-align:right">${it.leave_deduction.toFixed(2)}</td>
+        <td class="border px-2 py-1" style="text-align:right">${it.gross_pay.toFixed(2)}</td>
+        <td class="border px-2 py-1" style="text-align:right">${it.net_pay.toFixed(2)}</td>
+        <td class="border px-2 py-1"><pre class="text-xs">${JSON.stringify(it.formulas||{}, null, 2)}</pre></td>
+      </tr>
+    `).join("");
+    msg(`Preview สำเร็จ: ${data.items.length} รายการ`, "text-green-700");
+  }catch(e){
+    console.error(e);
+    msg("Preview ล้มเหลว: "+e.message, "text-red-700");
+  }
+}
+
+async function run(){
+  try{
+    const schemeId = Number($("#schemeSelect").value);
+    const ps = $("#periodStart").value;
+    const pe = $("#periodEnd").value;
+    const run = await postJSON(API.RUN, { scheme_id: schemeId, period_start: ps, period_end: pe });
+    msg(`สร้างงวดเงินเดือนสำเร็จ (Run ID: ${run.id})`, "text-green-700");
+  }catch(e){
+    console.error(e);
+    msg("สร้างงวดล้มเหลว: "+e.message, "text-red-700");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", async ()=>{
+  await loadSchemes();
+  $("#btnPreview").addEventListener("click", preview);
+  $("#btnRun").addEventListener("click", run);
+});
+</script>
+{% endblock %}

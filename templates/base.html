@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}HRM System{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/style.css"> {# ตรวจสอบให้แน่ใจว่าไฟล์นี้มีอยู่ #}
+    {% block head_extra %}{% endblock %}
+    <style>
+        /* Dropdown styles for navbar */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+            border-radius: 0.375rem; /* rounded-md */
+            overflow: hidden; /* เพื่อให้ dropdown-item มุมมนด้วย */
+        }
+
+        .dropdown-content a {
+            color: black;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+        }
+
+        .dropdown-content a:hover {
+            background-color: #f1f1f1;
+        }
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+
+    <nav class="bg-blue-600 p-4 shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="/" class="text-white text-2xl font-bold">HRM System</a>
+            <div class="flex space-x-4">
+                <a href="/dashboard" class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300">Dashboard</a>
+
+                <!-- Dropdown: จัดการข้อมูล -->
+                <div class="dropdown">
+                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300 inline-flex items-center">
+                        จัดการข้อมูล
+                        <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    </button>
+                    <div class="dropdown-content bg-white">
+                        <a href="/data-management/departments" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">แผนก</a>
+                        <a href="/data-management/positions" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ตำแหน่ง</a>
+                        <a href="/data-management/employees" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">พนักงาน</a>
+                    </div>
+                </div>
+
+                <!-- Dropdown: การลงเวลา -->
+                <div class="dropdown">
+                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300 inline-flex items-center">
+                        การลงเวลา
+                        <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    </button>
+                    <div class="dropdown-content bg-white">
+                        <a href="/time-tracking/working-schedules" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ตารางการทำงาน</a>
+                        <a href="/time-tracking/time-entries" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">บันทึกเวลา</a>
+                        <a href="/time-tracking/report" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t">รายงานบันทึกเวลา</a>
+                        <a href="/time-tracking/leave-types" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ประเภทการลา</a> 
+                        <a href="/time-tracking/leave-requests" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">คำขอลา</a>
+                        <a href="/time-tracking/ot-types" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t">ประเภท OT</a>
+                        <a href="/time-tracking/ot-requests" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">คำขอ OT</a>                     
+                        <a href="/time-tracking/holidays" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">วันหยุด</a> 
+                        
+                    </div>
+                </div>
+
+                <!-- Dropdown: เงินเดือน -->
+                <div class="dropdown">
+                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300 inline-flex items-center">
+                        เงินเดือน
+                        <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    </button>
+                    <div class="dropdown-content bg-white">
+                        <a href="/payroll/allowance-types" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ประเภทเงินเพิ่ม</a>
+                        <a href="/payroll/deduction-types" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ประเภทรายการหัก</a>
+                        <a href="/payroll/employee-allowances" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">รายการเงินเพิ่มพนักงาน</a>
+                        <a href="/payroll/employee-deductions" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">รายการหักพนักงาน</a>
+                        <a href="/payroll/salary-structures" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">โครงสร้างเงินเดือน</a>
+                        <a href="/payroll/payroll-runs" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">รอบการจ่ายเงินเดือน</a>
+                        <a href="/payroll/payroll-entries" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">รายงานเงินเดือน</a>
+                    </div>
+                </div>
+
+                <a href="/reports" class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300">ออกรายงาน</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 mt-4">
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="bg-blue-600 text-white p-4 mt-8">
+        <div class="container mx-auto text-center">
+            &copy; 2025 HRM Project. All rights reserved.
+        </div>
+    </footer>
+
+    <script>
+        // General script for dropdowns (if any, or can be removed if not used here)
+        document.querySelectorAll('.dropdown').forEach(dropdown => {
+            dropdown.addEventListener('click', function(event) {
+                // Toggle dropdown content visibility
+                const content = this.querySelector('.dropdown-content');
+                if (content) {
+                    content.style.display = content.style.display === 'block' ? 'none' : 'block';
+                }
+                event.stopPropagation(); // Prevent click from bubbling up and closing other dropdowns
+            });
+        });
+
+        // Close dropdowns if clicked outside
+        window.addEventListener('click', function(event) {
+            document.querySelectorAll('.dropdown-content').forEach(content => {
+                if (content.style.display === 'block' && !content.closest('.dropdown').contains(event.target)) {
+                    content.style.display = 'none';
+                }
+            });
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

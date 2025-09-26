@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>ใบจ่ายเงินเดือน {{ employee_fullname or 'พนักงาน' }}</title>
+
+  <!-- ฟอนต์ (ถ้า gen PDF แบบออฟไลน์จะ fallback เป็น Tahoma/TH Sarabun) -->
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* หน้า A4 + ระยะขอบ */
+    @page { size: A4; margin: 14mm 14mm 16mm; }
+    * { box-sizing: border-box; }
+    html, body {
+      font-family: "Sarabun","TH Sarabun New",Tahoma,Arial,sans-serif;
+      color:#1f2937; line-height:1.6; font-size:13px;
+    }
+    .wrap{ max-width:800px; margin:0 auto; }
+
+    /* Theme */
+    :root{
+      --brand:#2563eb; --brand-50:#eff6ff; --muted:#6b7280;
+      --line:#e5e7eb; --success:#059669; --danger:#dc2626;
+    }
+
+    /* Header เดิม */
+    .header{
+      display:flex; align-items:center; gap:16px;
+      padding:16px 18px; background:linear-gradient(135deg,var(--brand-50),#fff);
+      border:1px solid var(--line); border-radius:10px;
+    }
+    .logo{
+      width:56px; height:56px; border-radius:12px; background:var(--brand);
+      color:#fff; display:flex; align-items:center; justify-content:center;
+      font-weight:700; font-size:18px; letter-spacing:.5px;
+    }
+    .h-title{ margin:0; font-size:20px; font-weight:700; }
+    .h-sub{ margin:2px 0 0; color:var(--muted); }
+    .badge{ margin-left:auto; font-size:12px; font-weight:700;
+      padding:6px 10px; border-radius:999px; color:#fff; }
+    .paid{background:var(--success)} .pending{background:#f59e0b} .failed{background:var(--danger)}
+
+    /* Section, Summary cards, Table */
+    .section{ margin-top:18px; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+    .sec-head{ padding:10px 14px; background:#f8fafc; border-bottom:1px solid var(--line); font-weight:700; color:#0f172a; }
+    .sec-body{ padding:14px; }
+
+    .grid{ display:grid; grid-template-columns:1.2fr 1.2fr; gap:10px 18px; }
+    .kv{ display:flex; gap:6px; }
+    .kv .k{ color:var(--muted); min-width:110px; }
+    .kv .v{ color:#111827; }
+
+    .cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:4px; }
+    .card{ border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:#fff; }
+    .card .lbl{ color:var(--muted); font-size:12px; }
+    .card .amt{ font-size:18px; font-weight:700; margin-top:2px; text-align:right; }
+
+    table{ width:100%; border-collapse:collapse; }
+    th,td{ padding:9px 10px; }
+    thead th{ text-align:left; background:#f8fafc; border-bottom:1px solid var(--line); color:#0f172a; font-weight:700; }
+    tbody td{ border-bottom:1px solid var(--line); }
+    td.right{ text-align:right; }
+
+    .net{
+      margin-top:14px; padding:12px 14px; border-radius:12px;
+      background:linear-gradient(135deg,#f0f9ff,#fff); border:1px solid var(--line);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .net .label{ font-weight:700; font-size:16px; }
+    .net .value{ font-size:22px; font-weight:800; color:#111827; }
+
+    .muted{ color:var(--muted); }
+    .foot{ margin-top:18px; color:var(--muted); font-size:11px; text-align:center; }
+
+    /* Fallback สำหรับ wkhtmltopdf (ลดการใช้ grid/flex เมื่อ gen PDF) */
+    .pdf .grid{ display:table; width:100%; border-collapse:collapse; }
+    .pdf .grid .kv{ display:table-row; }
+    .pdf .grid .kv .k,.pdf .grid .kv .v{ display:table-cell; padding:4px 8px; vertical-align:top; }
+    .pdf .cards{ display:table; width:100%; table-layout:fixed; border-spacing:12px 0; }
+    .pdf .card{ display:table-cell; vertical-align:top; }
+    .pdf .header{ display:table; width:100%; }
+    .pdf .header>*{ display:table-cell; vertical-align:middle; }
+    .pdf .badge{ display:inline-block; margin-left:8px; }
+  </style>
+</head>
+<body class="{{ 'pdf' if is_pdf else '' }}">
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">{{ (company_name or 'LOGO')[:2] }}</div>
+    <div>
+      <h1 class="h-title">ใบจ่ายเงินเดือน (Payslip)</h1>
+      <p class="h-sub">
+        {{ company_name or 'บริษัทของคุณ' }}
+        · รอบวันที่: {{ period_start or '-' }} - {{ period_end or '-' }}
+      </p>
+    </div>
+    {% set ps = (payment_status or 'PENDING') %}
+    <span class="badge {{ 'paid' if ps=='PAID' else ('failed' if ps=='FAILED' else 'pending') }}">
+      {{ 'ชำระแล้ว' if ps=='PAID' else ('ไม่สำเร็จ' if ps=='FAILED' else 'รอดำเนินการ') }}
+    </span>
+  </div>
+
+  <!-- ข้อมูลพนักงาน -->
+  <div class="section">
+    <div class="sec-head">ข้อมูลพนักงาน</div>
+    <div class="sec-body grid">
+      <div class="kv"><div class="k">พนักงาน:</div><div class="v">{{ employee_fullname or '-' }}</div></div>
+      <div class="kv"><div class="k">รหัส:</div><div class="v">{{ employee_code or '-' }}</div></div>
+      <div class="kv"><div class="k">แผนก:</div><div class="v">{{ department_name or '-' }}</div></div>
+      <div class="kv"><div class="k">ตำแหน่ง:</div><div class="v">{{ position_name or '-' }}</div></div>
+      <div class="kv"><div class="k">วันที่จ่าย:</div><div class="v">{{ payment_date or '-' }}</div></div>
+      <div class="kv"><div class="k">วิธีจ่าย:</div><div class="v">{{ payment_method or '-' }}</div></div>
+    </div>
+  </div>
+
+  <!-- สรุปเงินเดือน -->
+  <div class="section">
+    <div class="sec-head">สรุปเงินเดือน</div>
+    <div class="sec-body">
+      <div class="cards">
+        <div class="card">
+          <div class="lbl">เงินเดือนรวม (Gross)</div>
+          <div class="amt">{{ "{:,.2f}".format(gross_salary or 0) }}</div>
+        </div>
+        <div class="card">
+          <div class="lbl">รวมรายได้พิเศษ (Allowances)</div>
+          <div class="amt">{{ "{:,.2f}".format(total_allowances or 0) }}</div>
+        </div>
+        <div class="card">
+          <div class="lbl">รวมรายการหัก (Deductions)</div>
+          <div class="amt">{{ "{:,.2f}".format(total_deductions or 0) }}</div>
+        </div>
+      </div>
+
+      <div class="net">
+        <div class="label">สุทธิรับ (Net Pay)</div>
+        <div class="value">{{ "{:,.2f}".format(net_salary or 0) }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- รายละเอียดรายได้พิเศษ -->
+  <div class="section">
+    <div class="sec-head">รายละเอียดรายได้พิเศษ</div>
+    <div class="sec-body">
+      {% if allowances and allowances|length %}
+        <table>
+          <thead><tr><th>รายการ</th><th class="right">จำนวนเงิน</th></tr></thead>
+          <tbody>
+            {% for a in allowances %}
+              <tr>
+                <td>{{ a.label or a.name or '-' }}</td>
+                <td class="right">{{ "{:,.2f}".format(a.amount or 0) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="muted">- ไม่มี -</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- รายการหัก -->
+  <div class="section">
+    <div class="sec-head">รายละเอียดรายการหัก</div>
+    <div class="sec-body">
+      {% if deductions and deductions|length %}
+        <table>
+          <thead><tr><th>รายการ</th><th class="right">จำนวนเงิน</th></tr></thead>
+          <tbody>
+            {% for d in deductions %}
+              <tr>
+                <td>{{ d.label or d.name or '-' }}</td>
+                <td class="right">{{ "{:,.2f}".format(d.amount or 0) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="muted">- ไม่มี -</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if notes %}
+  <div class="section">
+    <div class="sec-head">หมายเหตุ</div>
+    <div class="sec-body">{{ notes }}</div>
+  </div>
+  {% endif %}
+
+  <div class="foot">
+    เอกสารนี้สร้างโดยระบบ HRM · รอบจ่าย #{{ run_id or '-' }} · รายการ #{{ entry_id or '-' }}
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}จัดการโครงสร้างเงินเดือนพื้นฐาน{% endblock %}
+
+{% block head_extra %}
+<style>
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 1000; /* Sit on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+        overflow: auto; /* Enable scroll if needed */
+        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        justify-content: center;
+        align-items: center;
+    }
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Could be responsive */
+        max-width: 800px; /* Max width */
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-md p-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6">จัดการโครงสร้างเงินเดือนพื้นฐาน</h2>
+
+    <!-- ส่วนสำหรับเพิ่มโครงสร้างเงินเดือนพื้นฐานใหม่ -->
+    <div class="mb-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <h3 class="text-xl font-semibold text-gray-700 mb-4">เพิ่มเงินเดือนพื้นฐานใหม่</h3>
+        <form id="addSalaryStructureForm" class="space-y-4">
+            <div>
+                <label for="addEmployeeId" class="block text-sm font-medium text-gray-700 mb-1">พนักงาน <span class="text-red-500">*</span></label>
+                <select id="addEmployeeId" name="employee_id" required
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <!-- Options will be loaded by JS -->
+                </select>
+            </div>
+            <div>
+                <label for="addBaseSalary" class="block text-sm font-medium text-gray-700 mb-1">เงินเดือนพื้นฐาน <span class="text-red-500">*</span></label>
+                <input type="number" step="0.01" id="addBaseSalary" name="base_salary" required min="0"
+                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+            <div>
+                <label for="addEffectiveDate" class="block text-sm font-medium text-gray-700 mb-1">วันที่มีผลบังคับใช้ <span class="text-red-500">*</span></label>
+                <input type="date" id="addEffectiveDate" name="effective_date" required
+                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+            <button type="submit"
+                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                เพิ่มเงินเดือนพื้นฐาน
+            </button>
+        </form>
+        <div id="addSalaryStructureMessage" class="mt-4 text-sm font-medium"></div>
+    </div>
+
+    <!-- ส่วนสำหรับแสดงรายการโครงสร้างเงินเดือนพื้นฐาน -->
+    <div>
+        <h3 class="text-xl font-semibold text-gray-700 mb-4">รายการเงินเดือนพื้นฐาน</h3>
+        <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            ID
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            พนักงาน
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            เงินเดือนพื้นฐาน
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            มีผลตั้งแต่
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            การดำเนินการ
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="salaryStructuresTableBody" class="bg-white divide-y divide-gray-200">
+                    <!-- ข้อมูลโครงสร้างเงินเดือนจะถูกโหลดด้วย JavaScript ที่นี่ -->
+                    <tr>
+                        <td colspan="5" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                            กำลังโหลดข้อมูล...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div id="salaryStructuresMessage" class="mt-4 text-sm font-medium text-gray-700"></div>
+    </div>
+
+    <!-- Modal สำหรับแก้ไขโครงสร้างเงินเดือนพื้นฐาน -->
+    <div id="editSalaryStructureModal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold mb-4">แก้ไขเงินเดือนพื้นฐาน</h3>
+            <form id="editSalaryStructureForm" class="space-y-4">
+                <input type="hidden" id="editSalaryStructureId">
+                <div>
+                    <label for="editEmployeeName" class="block text-sm font-medium text-gray-700 mb-1">พนักงาน</label>
+                    <input type="text" id="editEmployeeName" disabled
+                           class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100 cursor-not-allowed sm:text-sm">
+                </div>
+                <div>
+                    <label for="editBaseSalary" class="block text-sm font-medium text-gray-700 mb-1">เงินเดือนพื้นฐาน <span class="text-red-500">*</span></label>
+                    <input type="number" step="0.01" id="editBaseSalary" name="base_salary" required min="0"
+                           class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="editEffectiveDate" class="block text-sm font-medium text-gray-700 mb-1">วันที่มีผลบังคับใช้ <span class="text-red-500">*</span></label>
+                    <input type="date" id="editEffectiveDate" name="effective_date" required
+                           class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="closeEditModalButton"
+                            class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        ยกเลิก
+                    </button>
+                    <button type="submit"
+                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        บันทึก
+                    </button>
+                </div>
+            </form>
+            <div id="editSalaryStructureMessage" class="mt-4 text-sm font-medium"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/payroll/salary_structures.js"></script>
+{% endblock %}
