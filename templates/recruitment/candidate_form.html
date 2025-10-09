@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}ฟอร์มผู้สมัคร{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow p-6 space-y-6">
+  <div class="flex items-center justify-between">
+    <h2 class="text-2xl font-bold">{{ 'แก้ไข' if candidate_id else 'เพิ่ม' }} ผู้สมัคร</h2>
+    <a href="/recruitment/candidates" class="text-blue-600 hover:underline">← กลับรายการ</a>
+  </div>
+
+  <form id="f-candidate" class="grid grid-cols-1 md:grid-cols-2 gap-4" enctype="multipart/form-data">
+    <input type="hidden" id="candidate_id" value="{{ candidate_id or '' }}">
+
+    <label class="block">
+      <div class="text-sm text-gray-600">ชื่อ *</div>
+      <input id="first_name" required class="w-full border rounded-lg px-3 py-2" />
+    </label>
+    <label class="block">
+      <div class="text-sm text-gray-600">นามสกุล *</div>
+      <input id="last_name" required class="w-full border rounded-lg px-3 py-2" />
+    </label>
+
+    <label class="block"><div class="text-sm text-gray-600">อีเมล</div>
+      <input id="email" class="w-full border rounded-lg px-3 py-2" />
+    </label>
+    <label class="block"><div class="text-sm text-gray-600">โทรศัพท์</div>
+      <input id="phone" class="w-full border rounded-lg px-3 py-2" />
+    </label>
+
+    <label class="block"><div class="text-sm text-gray-600">ตำแหน่งที่สมัคร</div>
+      <input id="position_applied" class="w-full border rounded-lg px-3 py-2" />
+    </label>
+    <label class="block"><div class="text-sm text-gray-600">แผนก</div>
+      <input id="department" class="w-full border rounded-lg px-3 py-2" />
+    </label>
+
+    <label class="block"><div class="text-sm text-gray-600">ประสบการณ์ (ปี)</div>
+      <input id="years_experience" type="number" step="0.1" class="w-full border rounded-lg px-3 py-2" />
+    </label>
+    <label class="block"><div class="text-sm text-gray-600">วุฒิการศึกษา</div>
+      <input id="education" class="w-full border rounded-lg px-3 py-2" />
+    </label>
+
+    <label class="block"><div class="text-sm text-gray-600">เงินเดือนที่คาดหวัง</div>
+      <input id="expected_salary" type="number" step="100" class="w-full border rounded-lg px-3 py-2" />
+    </label>
+    <label class="block"><div class="text-sm text-gray-600">แหล่งที่มา</div>
+      <input id="source" class="w-full border rounded-lg px-3 py-2" />
+    </label>
+
+    <label class="block md:col-span-2"><div class="text-sm text-gray-600">ความสามารถ (คั่นด้วย ,)</div>
+      <input id="skills" class="w-full border rounded-lg px-3 py-2" />
+    </label>
+
+    <label class="block md:col-span-2"><div class="text-sm text-gray-600">ลิงก์เรซูเม่ (ถ้ามี)</div>
+      <input id="resume_url" class="w-full border rounded-lg px-3 py-2" />
+    </label>
+
+    <!-- ✅ รูปปัจจุบัน + อัปโหลดใหม่ -->
+    <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <label class="block">
+        <div class="text-sm text-gray-600">รูปภาพผู้สมัคร (jpg/png/webp)</div>
+        <input id="photo" type="file" accept="image/*" class="w-full border rounded-lg px-3 py-2" />
+      </label>
+      <div class="block">
+        <div class="text-sm text-gray-600">รูปปัจจุบัน</div>
+        <div id="photo_preview_wrap" class="mt-2">
+          <div id="photo_empty" class="text-gray-400 text-sm">— ไม่มีรูป —</div>
+          <img id="photo_preview" class="h-24 w-24 rounded-lg object-cover hidden" />
+        </div>
+      </div>
+    </div>
+
+    <label class="block md:col-span-2"><div class="text-sm text-gray-600">เรซูเม่/สำเนา (PDF, เลือกได้หลายไฟล์)</div>
+      <input id="attachments" type="file" multiple accept="application/pdf" class="w-full border rounded-lg px-3 py-2" />
+    </label>
+
+    <label class="block">
+      <div class="text-sm text-gray-600">สถานะ</div>
+      <select id="status" class="w-full border rounded-lg px-3 py-2">
+        {% for enum, label in status_th.items() %}
+        <option value="{{ enum.value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="block md:col-span-2"><div class="text-sm text-gray-600">บันทึกเพิ่มเติม</div>
+      <textarea id="notes" rows="4" class="w-full border rounded-lg px-3 py-2"></textarea>
+    </label>
+
+    <div class="md:col-span-2 flex gap-3">
+      <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">บันทึก</button>
+      <a href="/recruitment/candidates" class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200">ยกเลิก</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // @ts-nocheck
+  const candidateId = document.getElementById('candidate_id').value;
+
+  function setVal(id, v) {
+    const el = document.getElementById(id);
+    if (el) el.value = (v ?? '');
+  }
+
+  async function loadCandidate() {
+    if (!candidateId) return;
+    const r = await fetch(`/api/v1/recruitment/candidates/${candidateId}`);
+    if (!r.ok) return;
+    const item = await r.json();
+
+    setVal('first_name', item.first_name);
+    setVal('last_name', item.last_name);
+    setVal('email', item.email);
+    setVal('phone', item.phone);
+    setVal('position_applied', item.position_applied);
+    setVal('department', item.department);
+    setVal('years_experience', item.years_experience);
+    setVal('education', item.education);
+    setVal('expected_salary', item.expected_salary);
+    setVal('source', item.source);
+    setVal('skills', item.skills);
+    setVal('resume_url', item.resume_url);
+    setVal('notes', item.notes);
+    document.getElementById('status').value = item.status || 'waiting_schedule';
+
+    // ✅ รูป preview
+    const img = document.getElementById('photo_preview');
+    const empty = document.getElementById('photo_empty');
+    if (item.photo_url) {
+      img.src = item.photo_url;
+      img.classList.remove('hidden');
+      empty.classList.add('hidden');
+    } else {
+      img.classList.add('hidden');
+      empty.classList.remove('hidden');
+    }
+  }
+
+  document.getElementById('f-candidate').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const fd = new FormData();
+    const get = id => document.getElementById(id);
+
+    fd.append('first_name', get('first_name').value);
+    fd.append('last_name',  get('last_name').value);
+    fd.append('email',      get('email').value);
+    fd.append('phone',      get('phone').value);
+    fd.append('position_applied', get('position_applied').value);
+    fd.append('department', get('department').value);
+    fd.append('education',  get('education').value);
+    fd.append('years_experience', get('years_experience').value || '0');
+    fd.append('expected_salary',  get('expected_salary').value || '');
+    fd.append('source', get('source').value);
+    fd.append('skills', get('skills').value);
+    fd.append('resume_url', get('resume_url').value);
+    fd.append('status',     get('status').value);
+    fd.append('notes',      get('notes').value);
+
+    const photo = get('photo').files?.[0];
+    if (photo) fd.append('photo', photo);
+
+    const files = get('attachments').files || [];
+    for (const f of files) fd.append('attachments', f);
+
+    const isEdit = !!candidateId;
+    const url = isEdit
+      ? `/api/v1/recruitment/candidates/${candidateId}/update-with-files`
+      : `/api/v1/recruitment/candidates/create-with-files`;
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const r = await fetch(url, { method, body: fd });
+    if (!r.ok) {
+      const t = await r.text();
+      alert('บันทึกล้มเหลว: ' + t);
+      return;
+    }
+    window.location.href = '/recruitment/candidates';
+  });
+
+  loadCandidate();
+</script>
+{% endblock %}

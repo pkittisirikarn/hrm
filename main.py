@@ -7,6 +7,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
+from database.base import Base
+import os
 
 # DB
 from database.connection import create_all_tables, SessionLocal, engine
@@ -20,6 +22,9 @@ from modules.meeting.routes import api as meeting_api, pages as meeting_pages
 # Migrations/seed helpers
 from modules.data_management.migrations import migrate_employees_contact_columns
 from modules.meeting.migrations import migrate_meeting_rooms_columns
+from modules.meeting.migrations import run_startup_migrations
+from modules.meeting.routes import api as meeting_api, pages as meeting_pages
+from modules.recruitment.routes import api as recruitment_api, pages as recruitment_pages
 
 # Windows event loop policy (dev on Windows)
 if sys.platform.startswith("win"):
@@ -46,14 +51,25 @@ app.add_middleware(
 # Static & templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-app.state.templates = templates
+app.state.templates = Jinja2Templates(directory="templates")
+
+# --- Static (เผื่อรูปห้องประชุม) ---
+os.makedirs("static/uploads/rooms", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.include_router(meeting_api)   # /api/v1/meeting/... (rooms, bookings, dashboard summary)
+app.include_router(meeting_pages) # /meeting/rooms , /meeting/bookings , /meeting/rooms/dashboard
 
 # Meeting (API + Pages)
-app.include_router(meeting_api)
-app.include_router(meeting_pages)
+app.include_router(recruitment_api)
+app.include_router(recruitment_pages)
 
 @app.on_event("startup")
 def on_startup():
+    
+    Base.metadata.create_all(bind=engine)   # ของเดิมคุณมีอยู่แล้ว
+    run_startup_migrations(engine)
+    
     print("Creating all database tables...")
     create_all_tables()
     print("Database tables created successfully.")
@@ -179,4 +195,12 @@ app.include_router(payroll_routes.ui_router,         prefix="/payroll",         
 app.include_router(time_tracking_routes.ui_router,   prefix="/time-tracking",   include_in_schema=False)
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)
+
+def _normalize_meeting_booking_statuses():
+    with SessionLocal() as db:
+        # ถ้าฐานข้อมูลเป็น SQLite/MySQL ก็รันได้ตรง ๆ
+        db.execute(text("UPDATE meeting_bookings SET status='APPROVED' WHERE status='BOOKED'"))
+        db.commit()
+
+_normalize_meeting_booking_statuses()

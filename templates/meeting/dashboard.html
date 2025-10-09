@@ -1,0 +1,111 @@
+{# templates/meeting/dashboard.html #}
+{% extends "base.html" %}
+{% block title %}Dashboard ห้องประชุม{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow p-6 space-y-6">
+  <div class="flex items-center justify-between">
+    <h2 class="text-2xl font-bold">Dashboard ห้องประชุม</h2>
+    <a href="/meeting/bookings" class="text-blue-600 hover:underline">ไปหน้า “การจองห้องประชุม” →</a>
+  </div>
+
+  <!-- ช่วงวันที่ -->
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+    <div class="md:col-span-2">
+      <label class="block text-sm text-gray-600 mb-1">วันที่เริ่ม</label>
+      <input id="dtFrom" type="date" class="border rounded px-3 py-2 w-full" />
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-sm text-gray-600 mb-1">วันที่สิ้นสุด</label>
+      <input id="dtTo" type="date" class="border rounded px-3 py-2 w-full" />
+    </div>
+    <div class="md:col-span-1 flex items-end">
+      <button id="btnLoad" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+        โหลดข้อมูล
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="rounded-lg border p-4">
+      <div class="text-sm text-gray-500">จำนวนห้องทั้งหมด</div>
+      <div id="kpiRooms" class="text-2xl font-semibold">-</div>
+    </div>
+    <div class="rounded-lg border p-4">
+      <div class="text-sm text-gray-500">จำนวนการจอง</div>
+      <div id="kpiBookings" class="text-2xl font-semibold">-</div>
+    </div>
+    <div class="rounded-lg border p-4">
+      <div class="text-sm text-gray-500">ชั่วโมงที่ถูกจองรวม</div>
+      <div id="kpiHours" class="text-2xl font-semibold">-</div>
+    </div>
+    <div class="rounded-lg border p-4">
+      <div class="text-sm text-gray-500">Utilization</div>
+      <div class="text-2xl font-semibold"><span id="kpiUtil">-</span>%</div>
+    </div>
+  </div>
+
+  <!-- แถวกราฟ -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="rounded-lg border p-4">
+      <div class="font-semibold mb-2">สัดส่วนสถานะการจอง</div>
+      <canvas id="chartStatus" height="140"></canvas>
+    </div>
+    <div class="rounded-lg border p-4">
+      <div class="font-semibold mb-2">ห้องที่ถูกใช้งานมากสุด (Top 10) ตามชั่วโมง</div>
+      <canvas id="chartTopRooms" height="140"></canvas>
+    </div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="rounded-lg border p-4 overflow-x-auto">
+    <div class="font-semibold mb-2">ความหนาแน่นการใช้งานตามวัน–ชั่วโมง</div>
+    <div id="heatLegend" class="text-sm text-gray-500 mb-2"></div>
+    <table id="heatTable" class="min-w-[720px] w-full border-collapse"></table>
+  </div>
+</div>
+
+<!-- ตารางรายการจอง (ไม่กรอง, แบ่งหน้า 10 รายการ) -->
+<div class="bg-white rounded-lg shadow p-6 mt-6">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-xl font-bold">รายการจองล่าสุด</h3>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full table-auto border text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-3 py-2 border">#</th>
+          <th class="px-3 py-2 border">รูป</th>
+          <th class="px-3 py-2 border">ห้อง</th>
+          <th class="px-3 py-2 border">ผู้ติดต่อ</th>
+          <th class="px-3 py-2 border">เวลา</th>
+          <th class="px-3 py-2 border">ผู้จอง</th>
+          <th class="px-3 py-2 border">หัวข้อ</th>
+          <th class="px-3 py-2 border">ผู้เข้าร่วม</th>
+          <th class="px-3 py-2 border">สถานะ</th>
+        </tr>
+      </thead>
+      <tbody id="dashBookings"></tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div class="flex items-center gap-3 justify-end mt-3">
+    <button id="prevPage" class="px-3 py-1 rounded border hover:bg-gray-50">ก่อนหน้า</button>
+    <span id="pageInfo" class="text-sm text-gray-600">หน้า 1/1</span>
+    <button id="nextPage" class="px-3 py-1 rounded border hover:bg-gray-50">ถัดไป</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <script src="/static/js/meeting/dashboard.js"></script>
+  <style>
+    /* heatmap */
+    #heatTable th, #heatTable td { border: 1px solid #e5e7eb; padding: 6px; text-align:center; }
+    #heatTable th.sticky { position: sticky; left: 0; background: #fff; z-index: 1; }
+  </style>
+{% endblock %}

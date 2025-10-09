@@ -4,31 +4,86 @@
 <div class="bg-white rounded-lg shadow p-6">
   <h2 class="text-2xl font-bold mb-4">จัดการห้องประชุม</h2>
 
-  <form id="addRoomForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <input id="name" class="border rounded px-3 py-2" placeholder="ชื่อห้อง *" required />
-    <input id="location" class="border rounded px-3 py-2" placeholder="สถานที่" />
-    <input id="capacity" type="number" min="1" value="4" class="border rounded px-3 py-2" placeholder="ความจุ" />
-    <input id="equipment" class="border rounded px-3 py-2 md:col-span-2" placeholder="อุปกรณ์ (TV,Whiteboard)" />
-    <label class="inline-flex items-center space-x-2"><input id="isActive" type="checkbox" checked /> <span>เปิดใช้งาน</span></label>
-    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded md:col-span-3">เพิ่มห้อง</button>
+  <form id="roomForm" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <input id="rmName" class="border rounded px-3 py-2 md:col-span-2" placeholder="ชื่อห้อง *" required />
+    <input id="rmLocation" class="border rounded px-3 py-2" placeholder="สถานที่" />
+    <input id="rmCapacity" type="number" min="1" value="4" class="border rounded px-3 py-2" placeholder="ความจุ" />
+
+    <!-- เอาออก: อุปกรณ์ / ผู้ติดต่อ -->
+    <select id="rmCoordinator" class="border rounded px-3 py-2">
+      <option value="">-- เลือกผู้ประสานงาน --</option>
+    </select>
+    <input id="rmCoordinatorEmail" type="email" class="border rounded px-3 py-2" placeholder="อีเมลผู้ประสานงาน (ถ้ามี)" />
+
+    <label class="inline-flex items-center space-x-2 md:col-span-2">
+      <input id="rmActive" type="checkbox" checked />
+      <span>เปิดใช้งาน</span>
+    </label>
+
+    <div class="md:col-span-2">
+      <label class="block text-sm mb-1">รูปห้อง (JPEG/PNG)</label>
+      <input id="rmImage" type="file" accept="image/*" class="border rounded px-3 py-2 w-full" />
+      <img id="rmPreview" class="hidden mt-2 w-40 h-28 object-cover rounded border" />
+    </div>
+
+    <div class="md:col-span-4 flex items-center gap-3">
+      <button id="btnSubmit" type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+        บันทึก
+      </button>
+      <button type="button" id="btnCancelEdit" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded">
+        ยกเลิกแก้ไข
+      </button>
+    </div>
   </form>
 
-  <div id="roomsMessage" class="mb-3 text-sm"></div>
+  <div id="roomsMsg" class="mb-3 text-sm"></div>
 
-  <table class="w-full table-auto border">
-    <thead><tr class="bg-gray-50">
-      <th class="px-3 py-2 border">ID</th>
-      <th class="px-3 py-2 border">ชื่อ</th>
-      <th class="px-3 py-2 border">สถานที่</th>
-      <th class="px-3 py-2 border">ความจุ</th>
-      <th class="px-3 py-2 border">อุปกรณ์</th>
-      <th class="px-3 py-2 border">สถานะ</th>
-      <th class="px-3 py-2 border">การจัดการ</th>
-    </tr></thead>
-    <tbody id="roomsTableBody"></tbody>
-  </table>
+  <div class="overflow-x-auto">
+    <table class="w-full table-auto border">
+      <thead>
+        <tr class="bg-gray-50">
+          <th class="px-3 py-2 border">ID</th>
+          <th class="px-3 py-2 border">รูป</th>
+          <th class="px-3 py-2 border">ชื่อ</th>
+          <th class="px-3 py-2 border">สถานที่</th>
+          <th class="px-3 py-2 border">ความจุ</th>
+          <!-- เอาออก: อุปกรณ์, ผู้ติดต่อ -->
+          <th class="px-3 py-2 border">ผู้ประสานงาน</th>
+          <th class="px-3 py-2 border">สถานะ</th>
+          <th class="px-3 py-2 border">แก้ไข</th>
+          <th class="px-3 py-2 border">ลบ</th>
+        </tr>
+      </thead>
+      <tbody id="roomsTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center">
+  <div class="bg-white rounded-lg p-4 w-full max-w-2xl">
+    <h3 class="text-lg font-bold mb-3">แก้ไขห้องประชุม</h3>
+    <input id="e_id" type="hidden">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <input id="e_name" class="border rounded px-3 py-2" placeholder="ชื่อห้อง *">
+      <input id="e_location" class="border rounded px-3 py-2" placeholder="สถานที่">
+      <input id="e_capacity" type="number" min="1" class="border rounded px-3 py-2" placeholder="ความจุ">
+      <!-- เอาออก: e_equipment, e_contact -->
+      <select id="e_coordinator" class="border rounded px-3 py-2">
+        <option value="">-- เลือกผู้ประสานงาน --</option>
+      </select>
+      <input id="e_coordinator_email" type="email" class="border rounded px-3 py-2" placeholder="อีเมลผู้ประสานงาน">
+      <label class="inline-flex items-center gap-2"><input id="e_active" type="checkbox"> <span>เปิดใช้งาน</span></label>
+      <textarea id="e_notes" class="border rounded px-3 py-2 md:col-span-2" placeholder="โน้ต"></textarea>
+    </div>
+    <div class="mt-4 flex justify-end gap-2">
+      <button id="e_close" class="px-4 py-2 rounded border">ปิด</button>
+      <button id="e_save" class="px-4 py-2 rounded bg-blue-600 text-white">บันทึก</button>
+    </div>
+  </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
-<script src="/static/js/meeting/rooms.js"></script>
+<script src="/static/js/meeting/rooms.js" defer></script>
 {% endblock %}

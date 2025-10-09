@@ -16,7 +16,12 @@
              class="border rounded px-3 py-2 w-full"
              placeholder="อีเมลผู้จอง *" />
 
+      <label class="block text-sm text-gray-600 mb-1">วันที่และเวลาเริ่มต้น *</label>
       <input id="startInput" type="datetime-local"
+             class="border rounded px-3 py-2 w-full" />
+
+      <label class="block text-sm text-gray-600 mb-1">วันที่และเวลาสิ้นสุด *</label>
+      <input id="endInput" type="datetime-local"
              class="border rounded px-3 py-2 w-full" />
 
       <textarea id="notesInput" rows="3"
@@ -28,6 +33,14 @@
     <div class="space-y-4">
       <input id="subjectInput" class="border rounded px-3 py-2 w-full"
              placeholder="หัวข้อการประชุม *" />
+      
+      <input id="contactInput" class="border rounded px-3 py-2 w-full" placeholder="ผู้ติดต่อ (ชื่อลูกค้า/ผู้ประสานงานฝั่งลูกค้า)" />
+      
+      <select id="bkStatus" class="border rounded px-3 py-2">
+      <option value="PENDING">Pending</option>
+      <option value="APPROVED">Approved</option>
+      <option value="REJECTED">Rejected</option>
+      </select>
 
       <div>
         <label class="block text-sm text-gray-600 mb-1">ผู้เข้าร่วม (เลือกหลายคน)</label>
@@ -35,9 +48,6 @@
                 class="border rounded px-3 py-2 w-full"></select>
         <p class="text-xs text-gray-500 mt-1">กด Ctrl/Cmd เพื่อเลือกหลายคน</p>
       </div>
-
-      <input id="endInput" type="datetime-local"
-             class="border rounded px-3 py-2 w-full" />
     </div>
   </div>
 
@@ -54,10 +64,19 @@
           <th class="px-3 py-2 border">ID</th>
           <th class="px-3 py-2 border">ห้อง</th>
           <th class="px-3 py-2 border">หัวข้อ</th>
+          <th class="px-3 py-2 border">ผู้ติดต่อ</th>
           <th class="px-3 py-2 border">เวลา</th>
           <th class="px-3 py-2 border">ผู้เข้าร่วม</th>
+          <th class="px-3 py-2 border">จำนวนผู้เข้าประชุม</th>
           <th class="px-3 py-2 border">สถานะ</th>
           <th class="px-3 py-2 border">การจัดการ</th>
+          <td class="px-3 py-2 border">
+          <div class="flex gap-2">
+            <button class="btn-approve" data-id="{{ id }}">อนุมัติ</button>
+            <button class="btn-reject"  data-id="{{ id }}">ปฏิเสธ</button>
+            <button class="btn-cancel"  data-id="{{ id }}">ยกเลิก</button>
+          </div>
+        </td>
         </tr>
       </thead>
       <tbody id="bookingsTableBody"></tbody>

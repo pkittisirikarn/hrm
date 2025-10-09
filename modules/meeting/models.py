@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+import enum
 
 from sqlalchemy import (
     Column,
@@ -11,26 +11,24 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Text,
-    Enum as SAEnum,
+    Boolean,
 )
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import relationship
 
 from database.base import Base
 
 
-class BookingStatus(str, Enum):
-    PENDING = "Pending"
-    BOOKED = "Booked"
-    CANCELLED = "Cancelled"
+class BookingStatus(str, enum.Enum):
+    PENDING   = "PENDING"
+    APPROVED  = "APPROVED"
+    REJECTED  = "REJECTED"
+    CANCELLED = "CANCELLED"
 
-
-class RoomApproval(str, Enum):
-    PENDING = "Pending"
-    APPROVED = "Approved"
-    REJECTED = "Rejected"
 
 class MeetingRoom(Base):
     __tablename__ = "meeting_rooms"
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False, unique=True)
     location = Column(String(200), nullable=True)
@@ -41,12 +39,12 @@ class MeetingRoom(Base):
     contact_name = Column(String(120), nullable=True)
     coordinator_employee_id = Column(Integer, nullable=True)
     coordinator_email = Column(String(200), nullable=True)
-    approval_status = Column(SAEnum(RoomApproval), default=RoomApproval.APPROVED, nullable=False)
 
     notes = Column(Text, nullable=True)
-    is_active = Column(Integer, default=1)
+    is_active = Column(Boolean, default=True, nullable=False)
 
     bookings = relationship("Booking", back_populates="room", cascade="all, delete-orphan")
+
 
 class Booking(Base):
     __tablename__ = "meeting_bookings"
@@ -56,11 +54,15 @@ class Booking(Base):
     room_id = Column(Integer, ForeignKey("meeting_rooms.id", ondelete="CASCADE"), nullable=False)
     subject = Column(String(200), nullable=False)
     requester_email = Column(String(200), nullable=False)
-
+    contact_person = Column(String(200), nullable=True)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
 
-    status = Column(SAEnum(BookingStatus), default=BookingStatus.BOOKED, nullable=False)
+    status = Column(
+        SAEnum(BookingStatus, name="booking_status", native_enum=False, create_constraint=True),
+        default=BookingStatus.PENDING,
+        nullable=False,
+    )
     notes = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
