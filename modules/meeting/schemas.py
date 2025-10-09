@@ -1,61 +1,80 @@
-from __future__ import annotations
+# modules/meeting/schemas.py
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, List
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel, EmailStr, Field
 
-class AmenityBase(BaseModel):
+# ---- Rooms ----
+class MeetingRoomBase(BaseModel):
     name: str
-
-class AmenityCreate(AmenityBase): pass
-class AmenityOut(AmenityBase):
-    id: int
-    class Config: from_attributes = True
-
-class RoomBase(BaseModel):
-    code: Optional[str] = None
-    name: str
-    capacity: int = 0
-    description: Optional[str] = None
-    image_url: Optional[str] = None
+    location: Optional[str] = None
+    capacity: int = Field(ge=1, default=4)
     is_active: bool = True
-    amenity_ids: List[int] = Field(default_factory=list)
 
-class RoomCreate(RoomBase): pass
-class RoomUpdate(RoomBase): pass
+    # NEW
+    contact_name: Optional[str] = None
+    coordinator_employee_id: Optional[int] = None
+    coordinator_email: Optional[EmailStr] = None
+    approval_status: Optional[str] = "Approved"  # Pending/Approved/Rejected
 
-class RoomOut(RoomBase):
+class MeetingRoomCreate(MeetingRoomBase):
+    pass
+
+class MeetingRoomUpdate(MeetingRoomBase):
+    pass
+
+class MeetingRoomOut(MeetingRoomBase):
     id: int
-    amenities: List[AmenityOut] = []
-    class Config: from_attributes = True
+    image_url: Optional[str] = None
+    class Config:
+        from_attributes = True
 
+# ---- Bookings ----
+# modules/meeting/schemas.py
+from pydantic import BaseModel, Field, EmailStr
+from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
+from typing import Optional, List
+from datetime import datetime
+
+# ... (ส่วน Room เดิมของคุณคงไว้)
+
+# ---- Bookings (ให้ตรงกับ model) ----
 class BookingBase(BaseModel):
     room_id: int
-    title: str
+    subject: str = Field(..., min_length=1, max_length=200)          # ← ชื่อเดียวกับ model
+    requester_email: EmailStr                                       # ← ชื่อเดียวกับ model
     start_time: datetime
     end_time: datetime
-    participants: int = 0
+    notes: Optional[str] = None
+    status: str = Field(default="Booked")
 
-    booked_by_user_id: Optional[int] = None
-    booked_by_name: str
-    booked_by_email: Optional[EmailStr] = None
+    # รายชื่อผู้เข้าร่วมแบบอ้างอิงพนักงาน (ถ้ามี)
+    attendee_employee_ids: Optional[List[int]] = None
 
-    coordinator_user_id: Optional[int] = None
-    coordinator_name: Optional[str] = None
-    coordinator_email: Optional[EmailStr] = None
+class BookingCreate(BookingBase):
+    pass
 
-    contact_name: Optional[str] = None
-    contact_email: Optional[EmailStr] = None
+class BookingUpdate(BookingBase):
+    pass
 
-class BookingCreate(BookingBase): pass
-class BookingUpdate(BookingBase): pass
+class BookingAttendeeOut(BaseModel):
+    id: int
+    employee_id: Optional[int] = None
+    attendee_name: Optional[str] = None
+    attendee_email: Optional[str] = None
+    class Config:
+        from_attributes = True
 
 class BookingOut(BookingBase):
     id: int
-    status: str
-    class Config: from_attributes = True
+    attendees: List[BookingAttendeeOut] | None = None
+    class Config:
+        from_attributes = True
+    
 
-# Dashboard
-class DashboardPie(BaseModel):
-    total_rooms: int
-    in_use_now: int
-    free_now: int
+
+# class BookingOut(BookingBase):
+#     id: int
+#     attendees: List[BookingAttendeeOut] | None = None
+#     class Config:
+#         from_attributes = True

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}ห้องประชุม{% endblock %}
+{% block content %}
+<div class="bg-white rounded-lg shadow p-6">
+  <h2 class="text-2xl font-bold mb-4">จัดการห้องประชุม</h2>
+
+  <form id="addRoomForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <input id="name" class="border rounded px-3 py-2" placeholder="ชื่อห้อง *" required />
+    <input id="location" class="border rounded px-3 py-2" placeholder="สถานที่" />
+    <input id="capacity" type="number" min="1" value="4" class="border rounded px-3 py-2" placeholder="ความจุ" />
+    <input id="equipment" class="border rounded px-3 py-2 md:col-span-2" placeholder="อุปกรณ์ (TV,Whiteboard)" />
+    <label class="inline-flex items-center space-x-2"><input id="isActive" type="checkbox" checked /> <span>เปิดใช้งาน</span></label>
+    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded md:col-span-3">เพิ่มห้อง</button>
+  </form>
+
+  <div id="roomsMessage" class="mb-3 text-sm"></div>
+
+  <table class="w-full table-auto border">
+    <thead><tr class="bg-gray-50">
+      <th class="px-3 py-2 border">ID</th>
+      <th class="px-3 py-2 border">ชื่อ</th>
+      <th class="px-3 py-2 border">สถานที่</th>
+      <th class="px-3 py-2 border">ความจุ</th>
+      <th class="px-3 py-2 border">อุปกรณ์</th>
+      <th class="px-3 py-2 border">สถานะ</th>
+      <th class="px-3 py-2 border">การจัดการ</th>
+    </tr></thead>
+    <tbody id="roomsTableBody"></tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/meeting/rooms.js"></script>
+{% endblock %}

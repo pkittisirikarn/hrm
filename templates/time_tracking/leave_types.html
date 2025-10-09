@@ -4,148 +4,172 @@
 
 {% block head_extra %}
 <style>
-    .modal {
-        display: none; /* Hidden by default */
-        position: fixed; /* Stay in place */
-        z-index: 1000; /* Sit on top */
-        left: 0;
-        top: 0;
-        width: 100%; /* Full width */
-        height: 100%; /* Full height */
-        overflow: auto; /* Enable scroll if needed */
-        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-        justify-content: center;
-        align-items: center;
-    }
-    .modal-content {
-        background-color: #fefefe;
-        margin: auto;
-        padding: 20px;
-        border: 1px solid #888;
-        width: 80%; /* Could be responsive */
-        max-width: 800px; /* Max width */
-        border-radius: 0.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    }
+  .modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;overflow:auto;background-color:rgba(0,0,0,.4);justify-content:center;align-items:center}
+  .modal-content{background-color:#fefefe;margin:auto;padding:20px;border:1px solid #888;width:90%;max-width:900px;border-radius:.5rem;box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -1px rgba(0,0,0,.06)}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="bg-white rounded-lg shadow-md p-6">
-    <h2 class="text-2xl font-bold text-gray-800 mb-6">จัดการประเภทการลา</h2>
+  <h2 class="text-2xl font-bold text-gray-800 mb-6">จัดการประเภทการลา</h2>
 
-    <!-- ส่วนสำหรับเพิ่มประเภทการลาใหม่ -->
-    <div class="mb-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
-        <h3 class="text-xl font-semibold text-gray-700 mb-4">เพิ่มประเภทการลาใหม่</h3>
-        <form id="addLeaveTypeForm" class="space-y-4">
-            <div>
-                <label for="addName" class="block text-sm font-medium text-gray-700 mb-1">ชื่อประเภทการลา <span class="text-red-500">*</span></label>
-                <input type="text" id="addName" name="name" required
-                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-            </div>
-            <div>
-                <label for="addDescription" class="block text-sm font-medium text-gray-700 mb-1">คำอธิบาย</label>
-                <textarea id="addDescription" name="description" rows="2"
-                          class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
-            </div>
-            <div>
-                <label for="addMaxDaysPerYear" class="block text-sm font-medium text-gray-700 mb-1">จำนวนวันสูงสุดต่อปี</label>
-                <input type="number" id="addMaxDaysPerYear" name="max_days_per_year" value="0" min="0"
-                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-            </div>
-            <div class="flex items-center">
-                <input type="checkbox" id="addIsPaidLeave" name="is_paid_leave" checked
-                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                <label for="addIsPaidLeave" class="ml-2 block text-sm text-gray-900">เป็นการลาแบบมีค่าจ้าง</label>
-            </div>
-            <button type="submit"
-                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                เพิ่มประเภทการลา
-            </button>
-        </form>
-        <div id="addLeaveTypeMessage" class="mt-4 text-sm font-medium"></div>
+  <!-- เพิ่มประเภทการลาใหม่ -->
+  <div class="mb-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
+    <h3 class="text-xl font-semibold text-gray-700 mb-4">เพิ่มประเภทการลาใหม่</h3>
+
+    <form id="addLeaveTypeForm" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+      <div class="md:col-span-4">
+        <label for="addName" class="block text-sm font-medium text-gray-700 mb-1">ชื่อประเภทการลา
+          <span class="text-red-500">*</span></label>
+        <input id="addName" name="name" required
+               class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+      </div>
+
+      <div class="md:col-span-8">
+        <label for="addDescription" class="block text-sm font-medium text-gray-700 mb-1">คำอธิบาย</label>
+        <input id="addDescription" name="description"
+               class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+      </div>
+
+      <div class="md:col-span-2">
+        <label for="addAnnualQuota" class="block text-sm font-medium text-gray-700 mb-1">Annual Quota</label>
+        <input id="addAnnualQuota" name="annual_quota" type="number" step="0.5" min="0" value="0"
+               class="block w-full border border-gray-300 rounded-md py-2 px-3 text-right focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+      </div>
+
+      <div class="md:col-span-2">
+        <label for="addAccruePerYear" class="block text-sm font-medium text-gray-700 mb-1">Accrue/Year</label>
+        <input id="addAccruePerYear" name="accrue_per_year" type="number" step="0.5" min="0" value="0"
+               class="block w-full border border-gray-300 rounded-md py-2 px-3 text-right focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+      </div>
+
+      <div class="md:col-span-2">
+        <label for="addMaxQuota" class="block text-sm font-medium text-gray-700 mb-1">Max Quota</label>
+        <input id="addMaxQuota" name="max_quota" type="number" step="0.5" min="0" value="0"
+               class="block w-full border border-gray-300 rounded-md py-2 px-3 text-right focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+      </div>
+
+      <div class="md:col-span-3 flex items-center gap-2">
+        <input id="addAffects" name="affects_balance" type="checkbox" checked
+               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+        <label for="addAffects" class="text-sm text-gray-900">ตัดสิทธิ์ (Affects balance)</label>
+      </div>
+
+      <div class="md:col-span-3 flex items-center gap-2">
+        <input id="addIsPaidLeave" name="is_paid_leave" type="checkbox" checked
+               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+        <label for="addIsPaidLeave" class="text-sm text-gray-900">เป็นการลาแบบมีค่าจ้าง</label>
+      </div>
+
+      <div class="md:col-span-12">
+        <button type="submit"
+                class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+          เพิ่มประเภทการลา
+        </button>
+      </div>
+    </form>
+
+    <div id="addLeaveTypeMessage" class="mt-3 text-sm font-medium"></div>
+  </div>
+
+  <!-- รายการประเภทการลา -->
+  <div>
+    <h3 class="text-xl font-semibold text-gray-700 mb-4">รายการประเภทการลา</h3>
+
+    <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">ID</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">ชื่อ</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">คำอธิบาย</th>
+            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Annual</th>
+            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Accrue/Year</th>
+            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Max</th>
+            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Affects</th>
+            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Paid</th>
+            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">การดำเนินการ</th>
+          </tr>
+        </thead>
+        <tbody id="leaveTypesTableBody" class="bg-white divide-y divide-gray-200">
+          <tr>
+            <td colspan="9" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+              กำลังโหลดข้อมูล...
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <!-- ส่วนสำหรับแสดงรายการประเภทการลา -->
-    <div>
-        <h3 class="text-xl font-semibold text-gray-700 mb-4">รายการประเภทการลา</h3>
-        <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-100">
-                    <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            ID
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            ชื่อ
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            คำอธิบาย
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            วันสูงสุดต่อปี
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            มีค่าจ้าง
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            การดำเนินการ
-                        </th>
-                    </tr>
-                </thead>
-                <tbody id="leaveTypesTableBody" class="bg-white divide-y divide-gray-200">
-                    <!-- ข้อมูลประเภทการลาจะถูกโหลดด้วย JavaScript ที่นี่ -->
-                    <tr>
-                        <td colspan="6" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                            กำลังโหลดข้อมูล...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+    <div id="leaveTypesMessage" class="mt-4 text-sm font-medium text-gray-700"></div>
+  </div>
+
+  <!-- Modal แก้ไข -->
+  <div id="editLeaveTypeModal" class="modal">
+    <div class="modal-content">
+      <h3 class="text-lg font-bold mb-4">แก้ไขประเภทการลา</h3>
+
+      <form id="editLeaveTypeForm" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <input type="hidden" id="editLeaveTypeId">
+
+        <div class="md:col-span-4">
+          <label for="editName" class="block text-sm font-medium text-gray-700 mb-1">ชื่อประเภทการลา
+            <span class="text-red-500">*</span></label>
+          <input id="editName" name="name" required
+                 class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
         </div>
-        <div id="leaveTypesMessage" class="mt-4 text-sm font-medium text-gray-700"></div>
-    </div>
 
-    <!-- Modal สำหรับแก้ไขประเภทการลา -->
-    <div id="editLeaveTypeModal" class="modal">
-        <div class="modal-content">
-            <h3 class="text-lg font-bold mb-4">แก้ไขประเภทการลา</h3>
-            <form id="editLeaveTypeForm" class="space-y-4">
-                <input type="hidden" id="editLeaveTypeId">
-                <div>
-                    <label for="editName" class="block text-sm font-medium text-gray-700 mb-1">ชื่อประเภทการลา <span class="text-red-500">*</span></label>
-                    <input type="text" id="editName" name="name" required
-                           class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                </div>
-                <div>
-                    <label for="editDescription" class="block text-sm font-medium text-gray-700 mb-1">คำอธิบาย</label>
-                    <textarea id="editDescription" name="description" rows="2"
-                              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"></textarea>
-                </div>
-                <div>
-                    <label for="editMaxDaysPerYear" class="block text-sm font-medium text-gray-700 mb-1">จำนวนวันสูงสุดต่อปี</label>
-                    <input type="number" id="editMaxDaysPerYear" name="max_days_per_year" min="0"
-                           class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                </div>
-                <div class="flex items-center">
-                    <input type="checkbox" id="editIsPaidLeave" name="is_paid_leave"
-                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                    <label for="editIsPaidLeave" class="ml-2 block text-sm text-gray-900">เป็นการลาแบบมีค่าจ้าง</label>
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" id="closeEditModalButton"
-                            class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                        ยกเลิก
-                    </button>
-                    <button type="submit"
-                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                        บันทึก
-                    </button>
-                </div>
-            </form>
-            <div id="editLeaveTypeMessage" class="mt-4 text-sm font-medium"></div>
+        <div class="md:col-span-8">
+          <label for="editDescription" class="block text-sm font-medium text-gray-700 mb-1">คำอธิบาย</label>
+          <input id="editDescription" name="description"
+                 class="block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
         </div>
+
+        <div class="md:col-span-2">
+          <label for="editAnnualQuota" class="block text-sm font-medium text-gray-700 mb-1">Annual Quota</label>
+          <input id="editAnnualQuota" name="annual_quota" type="number" step="0.5" min="0"
+                 class="block w-full border border-gray-300 rounded-md py-2 px-3 text-right focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+        </div>
+
+        <div class="md:col-span-2">
+          <label for="editAccruePerYear" class="block text-sm font-medium text-gray-700 mb-1">Accrue/Year</label>
+          <input id="editAccruePerYear" name="accrue_per_year" type="number" step="0.5" min="0"
+                 class="block w-full border border-gray-300 rounded-md py-2 px-3 text-right focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+        </div>
+
+        <div class="md:col-span-2">
+          <label for="editMaxQuota" class="block text-sm font-medium text-gray-700 mb-1">Max Quota</label>
+          <input id="editMaxQuota" name="max_quota" type="number" step="0.5" min="0"
+                 class="block w-full border border-gray-300 rounded-md py-2 px-3 text-right focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+        </div>
+
+        <div class="md:col-span-3 flex items-center gap-2">
+          <input id="editAffects" name="affects_balance" type="checkbox"
+                 class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+          <label for="editAffects" class="text-sm text-gray-900">ตัดสิทธิ์ (Affects balance)</label>
+        </div>
+
+        <div class="md:col-span-3 flex items-center gap-2">
+          <input id="editIsPaidLeave" name="is_paid_leave" type="checkbox"
+                 class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+          <label for="editIsPaidLeave" class="text-sm text-gray-900">เป็นการลาแบบมีค่าจ้าง</label>
+        </div>
+
+        <div class="md:col-span-12 flex justify-end gap-3 mt-2">
+          <button type="button" id="closeEditModalButton"
+                  class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none">
+            ยกเลิก
+          </button>
+          <button type="submit"
+                  class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none">
+            บันทึก
+          </button>
+        </div>
+      </form>
+
+      <div id="editLeaveTypeMessage" class="mt-4 text-sm font-medium"></div>
     </div>
+  </div>
 </div>
 {% endblock %}
 

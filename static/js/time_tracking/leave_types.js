@@ -1,294 +1,270 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE_URL = '/api/v1/time-tracking';
+// static/js/time_tracking/leave_types.js
+(() => {
+  const API = "/api/v1/time-tracking/leave-types";
 
-    // Elements for Adding Leave Type
-    const addLeaveTypeForm = document.getElementById('addLeaveTypeForm');
-    const addLeaveTypeMessage = document.getElementById('addLeaveTypeMessage');
-    const addNameInput = document.getElementById('addName');
-    const addDescriptionInput = document.getElementById('addDescription');
-    const addMaxDaysPerYearInput = document.getElementById('addMaxDaysPerYear');
-    const addIsPaidLeaveCheckbox = document.getElementById('addIsPaidLeave');
+  // ---------- helpers ----------
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const byId = (id) => (id ? document.getElementById(id) : null);
 
-    // Elements for Listing Leave Types
-    const leaveTypesTableBody = document.getElementById('leaveTypesTableBody');
-    const leaveTypesMessage = document.getElementById('leaveTypesMessage');
-
-    // Elements for Editing Leave Type Modal
-    const editLeaveTypeModal = document.getElementById('editLeaveTypeModal');
-    const closeEditModalButton = document.getElementById('closeEditModalButton');
-    const editLeaveTypeForm = document.getElementById('editLeaveTypeForm');
-    const editLeaveTypeMessage = document.getElementById('editLeaveTypeMessage');
-
-    // Edit Form Fields
-    const editLeaveTypeIdInput = document.getElementById('editLeaveTypeId');
-    const editNameInput = document.getElementById('editName');
-    const editDescriptionInput = document.getElementById('editDescription');
-    const editMaxDaysPerYearInput = document.getElementById('editMaxDaysPerYear');
-    const editIsPaidLeaveCheckbox = document.getElementById('editIsPaidLeave');
-
-    // --- Generic Message Display Function ---
-    function showMessage(element, message, isError = false) {
-        element.textContent = message;
-        element.className = `mt-4 text-sm font-medium ${isError ? 'text-red-600' : 'text-green-600'}`;
-        setTimeout(() => {
-            element.textContent = '';
-            element.className = 'mt-4 text-sm font-medium';
-        }, 5000);
+  // firstNotNullId("a","b") -> element ตัวแรกที่หาเจอ
+  const firstNotNullId = (...ids) => {
+    for (const id of ids) {
+      const el = byId(id);
+      if (el) return el;
     }
+    return null;
+  };
 
-    // --- Helper for formatting API error detail ---
-    async function formatApiErrorDetail(response) {
-        let errorMessage = `เกิดข้อผิดพลาดในการดำเนินการ (HTTP Status: ${response.status})`;
-        const contentType = response.headers.get('content-type');
+  const toNumber = (v) => {
+    if (v === "" || v === null || v === undefined) return 0;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
 
-        if (contentType && contentType.includes('application/json')) {
-            try {
-                const errorData = await response.json();
-                if (errorData && errorData.detail) {
-                    if (typeof errorData.detail === 'string') {
-                        errorMessage = errorData.detail;
-                    } else if (Array.isArray(errorData.detail)) {
-                        errorMessage = 'ข้อมูลไม่ถูกต้อง:\n' + errorData.detail.map(err => {
-                            const fieldName = err.loc.length > 1 ? err.loc[1] : err.loc[0];
-                            const msg = err.msg;
-                            return `(${fieldName}) - ${msg}`;
-                        }).join('\n');
-                    } else if (typeof errorData.detail === 'object') {
-                        errorMessage = JSON.stringify(errorData.detail);
-                    }
-                }
-            } catch (e) {
-                console.error("Failed to parse JSON error response:", e);
-                errorMessage = `เกิดข้อผิดพลาดในการอ่านรายละเอียดข้อผิดพลาดจากเซิร์ฟเวอร์ (JSON Parse Error). Status: ${response.status}.`;
-                try {
-                    const text = await response.text();
-                    if (text) errorMessage += ` Response Text: ${text.substring(0, 200)}...`;
-                } catch (err) { /* ignore */ }
-            }
-        } else {
-            try {
-                const text = await response.text();
-                errorMessage = `เซิร์ฟเวอร์เกิดข้อผิดพลาด. Status: ${response.status}. `;
-                if (text) errorMessage += `รายละเอียด: ${text.substring(0, 200)}...`;
-            } catch (e) {
-                console.error("Failed to read non-JSON error response:", e);
-                errorMessage = `เซิร์ฟเวอร์เกิดข้อผิดพลาดที่ไม่รู้จัก. Status: ${response.status}.`;
-            }
-        }
-        return errorMessage;
-    }
+  const showMsg = (el, msg, ok = true) => {
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className =
+      "mt-3 text-sm font-medium " + (ok ? "text-green-700" : "text-red-600");
+  };
 
-    // --- Fetch Leave Types from API and Render Table ---
-    async function fetchLeaveTypes() {
-        leaveTypesTableBody.innerHTML = `
-            <tr>
-                <td colspan="6" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                    กำลังโหลดข้อมูล...
-                </td>
-            </tr>`;
-        try {
-            const response = await fetch(`${API_BASE_URL}/leave-types/`);
-            if (!response.ok) {
-                const errorMsg = await formatApiErrorDetail(response);
-                throw new Error(errorMsg);
-            }
-            const leaveTypes = await response.json();
-            renderLeaveTypesTable(leaveTypes);
-        } catch (error) {
-            console.error('Error fetching leave types:', error);
-            leaveTypesTableBody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="px-6 py-4 whitespace-nowrap text-center text-sm text-red-600">
-                        เกิดข้อผิดพลาดในการโหลดข้อมูลประเภทการลา: ${error.message}
-                    </td>
-                </tr>`;
-            showMessage(leaveTypesMessage, `เกิดข้อผิดพลาด: ${error.message}`, true);
-        }
-    }
+  const fmt2 = (v) => Number(v || 0).toFixed(2);
 
-    // --- Render Leave Types Table ---
-    function renderLeaveTypesTable(leaveTypes) {
-        leaveTypesTableBody.innerHTML = '';
-        if (leaveTypes.length === 0) {
-            leaveTypesTableBody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                        ยังไม่มีข้อมูลประเภทการลา
-                    </td>
-                </tr>`;
-            return;
-        }
-
-        leaveTypes.forEach(leaveType => {
-            const row = leaveTypesTableBody.insertRow();
-            row.className = 'hover:bg-gray-50';
-
-            row.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${leaveType.id}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${leaveType.name}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${leaveType.description || '-'}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${leaveType.max_days_per_year} วัน</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${leaveType.is_paid_leave ? 'ใช่' : 'ไม่ใช่'}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                    <button data-id="${leaveType.id}" class="edit-btn bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-md mr-2 transition duration-150">แก้ไข</button>
-                    <button data-id="${leaveType.id}" class="delete-btn bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded-md transition duration-150">ลบ</button>
-                </td>
-            `;
-        });
-
-        // Add Event Listeners for Edit and Delete buttons
-        document.querySelectorAll('.edit-btn').forEach(button => {
-            button.addEventListener('click', async (event) => {
-                const id = event.target.dataset.id;
-                try {
-                    const response = await fetch(`${API_BASE_URL}/leave-types/${id}`);
-                    if (!response.ok) {
-                        const errorMsg = await formatApiErrorDetail(response);
-                        throw new Error(errorMsg);
-                    }
-                    const leaveType = await response.json();
-                    
-                    editLeaveTypeIdInput.value = leaveType.id;
-                    editNameInput.value = leaveType.name;
-                    editDescriptionInput.value = leaveType.description || '';
-                    editMaxDaysPerYearInput.value = leaveType.max_days_per_year;
-                    editIsPaidLeaveCheckbox.checked = leaveType.is_paid_leave;
-
-                    editLeaveTypeModal.style.display = 'flex'; // Show Modal
-                } catch (error) {
-                    console.error('Error fetching leave type for edit:', error);
-                    showMessage(leaveTypesMessage, `เกิดข้อผิดพลาดในการโหลดประเภทการลาเพื่อแก้ไข: ${error.message}`, true);
-                }
-            });
-        });
-
-        document.querySelectorAll('.delete-btn').forEach(button => {
-            button.addEventListener('click', async (event) => {
-                const id = event.target.dataset.id;
-                if (confirm(`คุณแน่ใจหรือไม่ที่ต้องการลบประเภทการลา ID: ${id} นี้?`)) {
-                    try {
-                        const response = await fetch(`${API_BASE_URL}/leave-types/${id}`, {
-                            method: 'DELETE',
-                        });
-                        if (!response.ok) {
-                            const errorMsg = await formatApiErrorDetail(response);
-                            throw new Error(errorMsg);
-                        }
-                        showMessage(leaveTypesMessage, 'ลบประเภทการลาเรียบร้อยแล้ว');
-                        fetchLeaveTypes(); // Reload data
-                    } catch (error) {
-                        console.error('Error deleting leave type:', error);
-                        showMessage(leaveTypesMessage, `เกิดข้อผิดพลาด: ${error.message}`, true);
-                    }
-                }
-            });
-        });
-    }
-
-    // --- Event Listener for Add Leave Type Form ---
-    addLeaveTypeForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        
-        const name = addNameInput.value.trim();
-        const description = addDescriptionInput.value.trim() || null;
-        const maxDaysPerYear = parseInt(addMaxDaysPerYearInput.value);
-        const isPaidLeave = addIsPaidLeaveCheckbox.checked;
-
-        if (!name) {
-            showMessage(addLeaveTypeMessage, 'กรุณากรอกชื่อประเภทการลา', true);
-            return;
-        }
-
-        addLeaveTypeMessage.textContent = 'กำลังเพิ่มประเภทการลา...';
-        addLeaveTypeMessage.className = 'mt-4 text-sm font-medium text-blue-600';
-
-        try {
-            const data = {
-                name: name,
-                description: description,
-                max_days_per_year: maxDaysPerYear,
-                is_paid_leave: isPaidLeave
-            };
-
-            const response = await fetch(`${API_BASE_URL}/leave-types/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-            });
-
-            if (!response.ok) {
-                const errorMsg = await formatApiErrorDetail(response);
-                console.error('API Error (add leave type):', errorMsg);
-                throw new Error(errorMsg);
-            }
-
-            const newLeaveType = await response.json();
-            showMessage(addLeaveTypeMessage, `เพิ่มประเภทการลา "${newLeaveType.name}" เรียบร้อยแล้ว`);
-            addLeaveTypeForm.reset(); // Clear form
-            fetchLeaveTypes(); // Reload data
-        } catch (error) {
-            console.error('Final caught error adding leave type:', error);
-            showMessage(addLeaveTypeMessage, `เกิดข้อผิดพลาด: ${error.message}`, true);
-        }
+  async function apiFetch(url, opts = {}) {
+    const res = await fetch(url, {
+      headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+      ...opts,
     });
+    if (!res.ok) {
+      let detail = "";
+      try {
+        detail = (await res.json()).detail || "";
+      } catch {}
+      throw new Error(detail || res.statusText);
+    }
+    if (res.status === 204) return null;
+    return res.json();
+  }
 
-    // --- Event Listener for Edit Leave Type Form ---
-    editLeaveTypeForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const leaveTypeId = editLeaveTypeIdInput.value;
-        
-        const name = editNameInput.value.trim();
-        const description = editDescriptionInput.value.trim() || null;
-        const maxDaysPerYear = parseInt(editMaxDaysPerYearInput.value);
-        const isPaidLeave = editIsPaidLeaveCheckbox.checked;
+  // ปลอดภัย: set/get ค่า โดยเช็ค element ก่อน
+  const setVal = (id, value) => {
+    const el = byId(id);
+    if (!el) return;
+    if ("checked" in el && typeof value === "boolean") {
+      el.checked = value;
+    } else {
+      el.value = value ?? "";
+    }
+  };
+  const getVal = (id, def = "") => {
+    const el = byId(id);
+    if (!el) return def;
+    if ("checked" in el && el.type === "checkbox") {
+      return !!el.checked;
+    }
+    return el.value ?? def;
+  };
 
-        if (!name) {
-            showMessage(editLeaveTypeMessage, 'กรุณากรอกชื่อประเภทการลา', true);
-            return;
-        }
+  // ---------- table render ----------
+  const tbody = $("#leaveTypesTableBody");
+  const listMsg = $("#leaveTypesMessage");
 
-        editLeaveTypeMessage.textContent = 'กำลังอัปเดตประเภทการลา...';
-        editLeaveTypeMessage.className = 'mt-4 text-sm font-medium text-blue-600';
+  const boolBadge = (val) =>
+    val
+      ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Yes</span>`
+      : `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">No</span>`;
 
-        try {
-            const data = {
-                name: name,
-                description: description,
-                max_days_per_year: maxDaysPerYear,
-                is_paid_leave: isPaidLeave
-            };
+  function rowHTML(item) {
+    const id = item.id;
+    const name = item.name || "";
+    const desc = item.description || "";
+    const annual = item.annual_quota ?? item.max_days_per_year ?? 0;
+    const accrue = item.accrue_per_year ?? 0;
+    const maxq = item.max_quota ?? 0;
+    const affects = !!(item.affects_balance ?? true);
+    const paid = !!(item.is_paid_leave ?? item.is_paid ?? true);
 
-            const response = await fetch(`${API_BASE_URL}/leave-types/${leaveTypeId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-            });
+    return `
+      <tr data-id="${id}">
+        <td class="px-4 py-3 text-sm text-gray-700">${id}</td>
+        <td class="px-4 py-3 text-sm text-gray-900">${name}</td>
+        <td class="px-4 py-3 text-sm text-gray-600">${desc}</td>
+        <td class="px-4 py-3 text-right text-sm text-gray-900">${fmt2(annual)}</td>
+        <td class="px-4 py-3 text-right text-sm text-gray-900">${fmt2(accrue)}</td>
+        <td class="px-4 py-3 text-right text-sm text-gray-900">${fmt2(maxq)}</td>
+        <td class="px-4 py-3 text-center">${boolBadge(affects)}</td>
+        <td class="px-4 py-3 text-center">${boolBadge(paid)}</td>
+        <td class="px-4 py-3 text-center">
+          <button class="edit-btn px-3 py-1.5 rounded-md text-sm bg-indigo-600 text-white hover:bg-indigo-700">แก้ไข</button>
+          <button class="del-btn px-3 py-1.5 rounded-md text-sm bg-red-600 text-white hover:bg-red-700 ml-2">ลบ</button>
+        </td>
+      </tr>
+    `;
+  }
 
-            if (!response.ok) {
-                const errorMsg = await formatApiErrorDetail(response);
-                throw new Error(errorMsg);
-            }
+  async function loadList() {
+    if (tbody)
+      tbody.innerHTML =
+        '<tr><td colspan="9" class="px-6 py-4 text-center text-sm text-gray-500">กำลังโหลดข้อมูล...</td></tr>';
+    try {
+      const data = await apiFetch(`${API}/`);
+      if (!tbody) return;
+      if (!data || data.length === 0) {
+        tbody.innerHTML =
+          '<tr><td colspan="9" class="px-6 py-4 text-center text-sm text-gray-500">ยังไม่มีประเภทการลา</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(rowHTML).join("");
+    } catch (e) {
+      if (tbody)
+        tbody.innerHTML = `<tr><td colspan="9" class="px-6 py-4 text-center text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: ${e.message}</td></tr>`;
+    }
+  }
 
-            const updatedLeaveType = await response.json();
-            showMessage(leaveTypesMessage, `อัปเดตประเภทการลา "${updatedLeaveType.name}" เรียบร้อยแล้ว`);
-            editLeaveTypeModal.style.display = 'none'; // Hide Modal
-            fetchLeaveTypes(); // Reload data
-        } catch (error) {
-            console.error('Final caught error updating leave type:', error);
-            showMessage(editLeaveTypeMessage, `เกิดข้อผิดพลาด: ${error.message}`, true);
-        }
-    });
+  // ---------- Add ----------
+  const addForm = $("#addLeaveTypeForm");
+  const addMsg = $("#addLeaveTypeMessage");
 
-    // --- Event Listener for closing Edit Modal ---
-    closeEditModalButton.addEventListener('click', () => {
-        editLeaveTypeModal.style.display = 'none';
-        editLeaveTypeMessage.textContent = '';
-    });
+  async function onAddSubmit(ev) {
+    ev.preventDefault();
+    showMsg(addMsg, "");
 
-    // Initial loads
-    fetchLeaveTypes();
-});
+    const annualEl = firstNotNullId("addAnnualQuota", "addMaxDaysPerYear");
+    const payload = {
+      name: getVal("addName").trim(),
+      description: getVal("addDescription").trim(),
+      annual_quota: toNumber(annualEl ? annualEl.value : 0),
+      accrue_per_year: toNumber(getVal("addAccruePerYear", 0)),
+      max_quota: toNumber(getVal("addMaxQuota", 0)),
+      affects_balance: !!getVal("addAffects", true),
+      is_paid_leave: !!(
+        firstNotNullId("addIsPaidLeave", "addIsPaid")?.checked ?? true
+      ),
+    };
+
+    if (!payload.name) {
+      showMsg(addMsg, "กรุณาระบุชื่อประเภทการลา", false);
+      return;
+    }
+
+    try {
+      await apiFetch(`${API}/`, { method: "POST", body: JSON.stringify(payload) });
+      showMsg(addMsg, "เพิ่มประเภทการลาสำเร็จ");
+      addForm?.reset();
+      // reset default checkbox ถ้ามี
+      if (byId("addAffects")) byId("addAffects").checked = true;
+      const paidEl = firstNotNullId("addIsPaidLeave", "addIsPaid");
+      if (paidEl) paidEl.checked = true;
+      await loadList();
+    } catch (e) {
+      showMsg(addMsg, `เพิ่มไม่สำเร็จ: ${e.message}`, false);
+    }
+  }
+
+  // ---------- Edit modal ----------
+  const modal = $("#editLeaveTypeModal");
+  const editForm = $("#editLeaveTypeForm");
+  const editMsg = $("#editLeaveTypeMessage");
+  const openModal = () => {
+    if (modal) modal.style.display = "flex";
+    showMsg(editMsg, "");
+  };
+  const closeModal = () => {
+    if (modal) modal.style.display = "none";
+    showMsg(editMsg, "");
+  };
+
+  byId("closeEditModalButton")?.addEventListener("click", closeModal);
+  modal?.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+
+  async function openEdit(id) {
+    showMsg(editMsg, "");
+    try {
+      const item = await apiFetch(`${API}/${id}`);
+
+      setVal("editLeaveTypeId", item.id);
+      setVal("editName", item.name || "");
+      setVal("editDescription", item.description || "");
+
+      const annual = item.annual_quota ?? item.max_days_per_year ?? 0;
+      const accrue = item.accrue_per_year ?? 0;
+      const maxq = item.max_quota ?? 0;
+
+      // map ทั้ง field ใหม่/เก่า อย่าง “ปลอดภัย”
+      const annualEl = firstNotNullId("editAnnualQuota", "editMaxDaysPerYear");
+      if (annualEl) annualEl.value = annual;
+
+      setVal("editAccruePerYear", accrue);
+      setVal("editMaxQuota", maxq);
+
+      const affectsEl = byId("editAffects");
+      if (affectsEl) affectsEl.checked = !!(item.affects_balance ?? true);
+
+      const paidEl = byId("editIsPaidLeave");
+      if (paidEl) paidEl.checked = !!(item.is_paid_leave ?? item.is_paid ?? true);
+
+      openModal();
+    } catch (e) {
+      showMsg(listMsg, `เกิดข้อผิดพลาดในการโหลดประเภทการลาเพื่อแก้ไข: ${e.message}`, false);
+    }
+  }
+
+  async function onEditSubmit(ev) {
+    ev.preventDefault();
+    showMsg(editMsg, "");
+
+    const id = getVal("editLeaveTypeId");
+    const annualEl = firstNotNullId("editAnnualQuota", "editMaxDaysPerYear");
+
+    const payload = {
+      name: getVal("editName").trim(),
+      description: getVal("editDescription").trim(),
+      annual_quota: toNumber(annualEl ? annualEl.value : 0),
+      accrue_per_year: toNumber(getVal("editAccruePerYear", 0)),
+      max_quota: toNumber(getVal("editMaxQuota", 0)),
+      affects_balance: !!(byId("editAffects")?.checked ?? true),
+      is_paid_leave: !!(byId("editIsPaidLeave")?.checked ?? true),
+    };
+
+    if (!payload.name) {
+      showMsg(editMsg, "กรุณาระบุชื่อประเภทการลา", false);
+      return;
+    }
+
+    try {
+      await apiFetch(`${API}/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+      showMsg(editMsg, "บันทึกสำเร็จ");
+      closeModal();
+      await loadList();
+    } catch (e) {
+      showMsg(editMsg, `บันทึกไม่สำเร็จ: ${e.message}`, false);
+    }
+  }
+
+  // ---------- Delete ----------
+  async function onDelete(id) {
+    if (!confirm("ยืนยันการลบประเภทการลานี้?")) return;
+    try {
+      await apiFetch(`${API}/${id}`, { method: "DELETE" });
+      await loadList();
+    } catch (e) {
+      showMsg(listMsg, `ลบไม่สำเร็จ: ${e.message}`, false);
+    }
+  }
+
+  // ---------- delegates ----------
+  tbody?.addEventListener("click", (e) => {
+    const tr = e.target.closest("tr[data-id]");
+    if (!tr) return;
+    const id = tr.getAttribute("data-id");
+    if (e.target.closest(".edit-btn")) openEdit(id);
+    else if (e.target.closest(".del-btn")) onDelete(id);
+  });
+
+  addForm?.addEventListener("submit", onAddSubmit);
+  editForm?.addEventListener("submit", onEditSubmit);
+
+  // ---------- init ----------
+  loadList();
+})();

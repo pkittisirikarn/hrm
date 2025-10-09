@@ -4,30 +4,42 @@
 
 {% block content %}
 <div class="bg-white rounded-lg shadow-md p-6">
-    <h2 class="text-2xl font-bold text-gray-800 mb-6">รายงานบันทึกเวลา</h2>
+  <h2 class="text-2xl font-bold text-gray-800 mb-6">รายงานบันทึกเวลา (พร้อมวันลา & OT)</h2>
 
-    <!-- Search Form -->
-    <div class="mb-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
-        <h3 class="text-xl font-semibold text-gray-700 mb-4">ค้นหาข้อมูล</h3>
-        <form id="searchForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div>
-                <label for="searchEmployeeId" class="block text-sm font-medium text-gray-700 mb-1">รหัสพนักงาน</label>
-                <input type="text" id="searchEmployeeId" placeholder="ค้นหาตามรหัสพนักงาน..." class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-            </div>
-            <div>
-                <label for="searchDate" class="block text-sm font-medium text-gray-700 mb-1">วันที่</label>
-                <input type="date" id="searchDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-            </div>
-            <div class="flex space-x-2">
-                <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    ค้นหา
-                </button>
-                <button type="button" id="clearSearchBtn" class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    ล้างค่า
-                </button>
-            </div>
-        </form>
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700">รหัสพนักงาน</label>
+      <input id="repEmpId" type="text" class="mt-1 block w-full border rounded px-3 py-2" placeholder="เช่น 20220001">
     </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700">ตั้งแต่ (วันที่)</label>
+      <input id="repFrom" type="date" class="mt-1 block w-full border rounded px-3 py-2">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700">ถึง (วันที่)</label>
+      <input id="repTo" type="date" class="mt-1 block w-full border rounded px-3 py-2">
+    </div>
+    <div class="flex items-end">
+      <button id="btnLoad" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        แสดงข้อมูล
+      </button>
+    </div>
+    <div class="flex items-end">
+      <button id="btnExport" class="w-full bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800">
+        ส่งออก CSV
+      </button>
+    </div>
+  </div>
+
+  <div class="mb-2 text-sm text-gray-600" id="repMsg"></div>
+
+  <div class="overflow-x-auto border rounded">
+    <table id="repTable" class="min-w-full divide-y divide-gray-200">
+      <thead id="repThead" class="bg-gray-100"></thead>
+      <tbody id="repTbody" class="bg-white divide-y divide-gray-200"></tbody>
+    </table>
+  </div>
+</div>
     <!-- Attendance Tools -->
     <div class="mb-4 flex items-center gap-2">
     <button id="openRebuildAttendanceModal"
@@ -75,7 +87,7 @@
     <!-- include script -->
     <script src="/static/js/time_tracking/attendance_tools.js"></script>
 
-    <!-- Results Table -->
+    <!-- Results Table
     <div>
         <h3 class="text-xl font-semibold text-gray-700 mb-4">ผลลัพธ์</h3>
         <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
@@ -91,15 +103,15 @@
                     </tr>
                 </thead>
                 <tbody id="reportTableBody" class="bg-white divide-y divide-gray-200">
-                    <!-- Data will be loaded by JavaScript -->
+                    <!-- Data will be loaded by JavaScript
                 </tbody>
             </table>
         </div>
         <div id="reportMessage" class="mt-4 text-sm font-medium"></div>
-    </div>
+    </div> -->
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/time_tracking/report.js"></script>
+<script src="/static/js/time_tracking/report_dynamic.js"></script>
 {% endblock %}

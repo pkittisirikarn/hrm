@@ -5,21 +5,23 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime, time
 import pandas as pd
 import io
 
 from database.connection import get_db
 from modules.data_management.models import Employee
+from modules.time_tracking.models import TimeEntry
 from . import schemas, services
 
 # --------------------------------------
 # Routers
 # --------------------------------------
-ui_router = APIRouter()
-# api_router = APIRouter(prefix="/api/v1/time-tracking", tags=["Time Tracking API"])
-api_router = APIRouter(tags=["Time Tracking API"])
+ui_router  = APIRouter()                                 # เส้นทางหน้าจอ (HTML)
+api_router = APIRouter(prefix="/api/v1/time-tracking",   # เส้นทาง API
+                       tags=["Time Tracking API"])
 
 # --------------------------------------
 # Helpers (UI templating)
@@ -52,6 +54,10 @@ async def ui_leave_requests(request: Request):
 async def ui_leave_types(request: Request):
     return _tpl(request, "time_tracking/leave_types.html")
 
+@ui_router.get("/leave-balances", response_class=HTMLResponse, include_in_schema=False)
+async def ui_leave_balances(request: Request):
+    return _tpl(request, "time_tracking/leave_balances.html")
+
 @ui_router.get("/holidays", response_class=HTMLResponse, include_in_schema=False)
 async def ui_holidays(request: Request):
     return _tpl(request, "time_tracking/holidays.html")
@@ -80,7 +86,171 @@ async def ui_ot_request_edit(ot_request_id: int, request: Request):
 # API ROUTES
 # =========================
 
-# --- Attendance: rebuild daily snapshot ---
+# -------- Logs / Time entries report (แบบ range/รายวัน) --------
+@api_router.get("/logs/")
+def list_logs(
+    db: Session = Depends(get_db),
+    employee_code: Optional[str] = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    limit: int = 200,
+    offset: int = 0,
+):
+    q = (
+        db.query(TimeEntry)
+        .join(Employee, Employee.id == TimeEntry.employee_id)
+        .order_by(TimeEntry.check_in_time.asc())
+    )
+
+    if employee_code:
+        q = q.filter(Employee.employee_id_number.ilike(f"%{employee_code}%"))
+
+    if date_from and date_to:
+        start_dt = datetime.combine(date_from, time.min)
+        end_dt   = datetime.combine(date_to,   time.max)
+        q = q.filter(
+            or_(
+                TimeEntry.check_in_time.between(start_dt, end_dt),
+                TimeEntry.check_out_time.between(start_dt, end_dt),
+                (TimeEntry.check_in_time <= end_dt)
+                & (func.coalesce(TimeEntry.check_out_time, TimeEntry.check_in_time) >= start_dt),
+            )
+        )
+    elif date_from:
+        q = q.filter(func.date(TimeEntry.check_in_time) >= date_from)
+    elif date_to:
+        q = q.filter(func.date(TimeEntry.check_in_time) <= date_to)
+
+    items = q.offset(offset).limit(limit).all()
+    return {"count": q.count(), "items": items}
+
+# -------- Leave Balances --------
+@api_router.get("/leave-balances/{employee_id}/{year}",
+               response_model=List[schemas.LeaveBalanceInDB])
+def api_get_leave_balances(employee_id: int, year: int, db: Session = Depends(get_db)):
+    rows = services.get_leave_balances(db=db, employee_id=employee_id, year=year)
+    return rows
+
+@api_router.get("/leave-balances/")
+def list_leave_balances_api(
+    employee_id: Optional[int] = Query(None),
+    year: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
+    y = year or datetime.utcnow().year
+    return services.list_leave_balances(db=db, employee_id=employee_id, year=y)
+
+@api_router.put("/leave-balances/{balance_id}")
+def update_leave_balance_api(
+    balance_id: int,
+    opening_quota: Optional[float] = Query(None),  # legacy
+    accrued: Optional[float] = Query(None),
+    used: Optional[float] = Query(None),
+    adjusted: Optional[float] = Query(None),
+    carry_in: Optional[float] = Query(None),
+    db: Session = Depends(get_db),
+):
+    # map query params -> LeaveBalanceUpdate
+    data = {}
+    if opening_quota is not None:
+        data["opening"] = opening_quota   # ← map legacy ชื่อเก่าไป field ใหม่
+    if accrued is not None:
+        data["accrued"] = accrued
+    if used is not None:
+        data["used"] = used
+    if adjusted is not None:
+        data["adjusted"] = adjusted
+    if carry_in is not None:
+        data["carry_in"] = carry_in
+
+    patch = schemas.LeaveBalanceUpdate(**data)
+    obj = services.update_leave_balance(db=db, balance_id=balance_id, patch=patch)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Leave balance not found")
+    return obj
+
+@api_router.post("/leave-balances/seed")
+def seed_leave_balances_api(
+    year: int = Query(...),
+    db: Session = Depends(get_db),
+):
+    return services.seed_leave_balances(db=db, year=year)
+
+@api_router.patch("/leave-balances/{balance_id}")
+def patch_leave_balance_api(
+    balance_id: int,
+    patch: schemas.LeaveBalanceUpdate,   # body JSON: {opening, accrued, used, adjusted, carry_in}
+    db: Session = Depends(get_db),
+):
+    obj = services.update_leave_balance(db=db, balance_id=balance_id, patch=patch)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Leave balance not found")
+    return obj
+
+@api_router.post("/leave-balances/{employee_id}/{year}/{leave_type_id}/adjust",
+                 response_model=schemas.LeaveBalanceInDB)
+def api_adjust_leave_balance(
+    employee_id: int, year: int, leave_type_id: int,
+    payload: schemas.LeaveBalanceAdjust, db: Session = Depends(get_db)
+):
+    lb = services.adjust_leave_balance(
+        db=db, employee_id=employee_id,
+        leave_type_id=leave_type_id, year=year,
+        delta=payload.adjusted_delta
+    )
+    return lb
+
+# -------- Leave approve / reject --------
+@api_router.post("/leave-requests/{request_id}/approve",
+                 response_model=schemas.LeaveRequestInDB)
+def api_approve_leave(request_id: int, db: Session = Depends(get_db)):
+    return services.approve_leave_request(db=db, request_id=request_id)
+
+@api_router.post("/leave-requests/{request_id}/reject",
+                 response_model=schemas.LeaveRequestInDB)
+def api_reject_leave(request_id: int, reason: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    return services.reject_leave_request(db=db, request_id=request_id, reason=reason)
+
+@api_router.get("/leave-requests/balance")
+def api_leave_balance(
+    employee_id: int = Query(...),
+    leave_type_id: int = Query(...),
+    year: int = Query(...),
+    db: Session = Depends(get_db),
+):
+    return services.get_leave_balance_year(
+        db=db, employee_id=employee_id,
+        leave_type_id=leave_type_id, year=year
+    )
+    
+# ---------- Leave Requests (CRUD) ----------
+@api_router.post("/leave-requests/", response_model=schemas.LeaveRequestInDB, status_code=status.HTTP_201_CREATED)
+def create_leave_request_api(payload: schemas.LeaveRequestCreate, db: Session = Depends(get_db)):
+    return services.create_leave_request(db=db, leave_request=payload)
+
+@api_router.get("/leave-requests/", response_model=List[schemas.LeaveRequestInDB])
+def list_leave_requests_api(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return services.get_leave_requests(db=db, skip=skip, limit=limit)
+
+@api_router.get("/leave-requests/{request_id}", response_model=schemas.LeaveRequestInDB)
+def get_leave_request_api(request_id: int, db: Session = Depends(get_db)):
+    obj = services.get_leave_request(db=db, request_id=request_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Leave request not found")
+    return obj
+
+@api_router.put("/leave-requests/{request_id}", response_model=schemas.LeaveRequestInDB)
+def update_leave_request_api(request_id: int, payload: schemas.LeaveRequestUpdate, db: Session = Depends(get_db)):
+    return services.update_leave_request(db=db, request_id=request_id, leave_request_update=payload)
+
+@api_router.delete("/leave-requests/{request_id}", status_code=status.HTTP_200_OK)
+def delete_leave_request_api(request_id: int, db: Session = Depends(get_db)):
+    deleted = services.delete_leave_request(db=db, request_id=request_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Leave request not found")
+    return {"message": "คำขอลาถูกลบแล้ว"}
+
+# -------- Attendance: rebuild daily snapshot --------
 @api_router.post("/attendance/rebuild")
 def rebuild_attendance_api(
     start: date = Query(..., description="YYYY-MM-DD"),
@@ -91,11 +261,6 @@ def rebuild_attendance_api(
     ),
     db: Session = Depends(get_db),
 ):
-    """
-    เติม/ทับ AttendanceDaily รายวันช่วง [start, end].
-    - employee_id เป็น int → ใช้เป็น employee.id
-    - employee_id เป็น str → map จาก Employee.employee_id_number
-    """
     emp_db_id: Optional[int] = None
     if employee_id:
         try:
@@ -109,15 +274,32 @@ def rebuild_attendance_api(
     services.rebuild_attendance_range(db=db, start=start, end=end, employee_id=emp_db_id)
     return {"ok": True, "start": str(start), "end": str(end), "employee_id": emp_db_id}
 
-# --- Report data (used by /time-tracking/report) ---
-@api_router.get("/report/data", response_model=List[schemas.TimeEntryInDB])
+# -------- Report data (ใช้ในหน้า /time-tracking/report) --------
+@api_router.get("/report/data")
 def get_time_entries_report_api(
-    employee_id_number: Optional[str] = Query(None, description="รหัสพนักงาน เช่น 20220201"),
-    entry_date: Optional[date] = Query(None, description="YYYY-MM-DD"),
+    employee_id_number: Optional[str] = Query(None),
+    entry_date: Optional[date] = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    include_leaves: bool = Query(True),
+    include_ot: bool = Query(True),
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
+    if date_from or date_to:
+        _from = date_from or date_to
+        _to   = date_to or date_from
+        # รายงานแบบรวม (Time + Leave + OT)
+        return services.build_daily_report(
+            db=db,
+            date_from=_from,
+            date_to=_to,
+            employee_id_number=employee_id_number,
+            include_leaves=include_leaves,
+            include_ot=include_ot,
+        )
+    # กรณีดึงวันเดียวแบบเก่า
     return services.get_time_entries_report(
         db=db,
         employee_id_number=employee_id_number,
@@ -211,8 +393,10 @@ def create_leave_type(leave_type: schemas.LeaveTypeCreate, db: Session = Depends
     return services.create_leave_type(db=db, leave_type=leave_type)
 
 @api_router.get("/leave-types/", response_model=List[schemas.LeaveTypeInDB])
-def list_leave_types(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return services.get_leave_types(db=db, skip=skip, limit=limit)
+def list_leave_types(skip: int = 0, limit: int = 100,
+                     affects_balance: bool | None = Query(None),
+                     db: Session = Depends(get_db)):
+    return services.get_leave_types(db=db, skip=skip, limit=limit, affects_balance=affects_balance)
 
 @api_router.get("/leave-types/{leave_type_id}", response_model=schemas.LeaveTypeInDB)
 def get_leave_type(leave_type_id: int, db: Session = Depends(get_db)):
@@ -235,37 +419,9 @@ def delete_leave_type(leave_type_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="ไม่พบประเภทการลา")
     return {"message": "ประเภทการลาถูกลบแล้ว"}
 
-# ---------- Leave Requests ----------
-@api_router.post("/leave-requests/", response_model=schemas.LeaveRequestInDB, status_code=status.HTTP_201_CREATED)
-def create_leave_request(leave_request: schemas.LeaveRequestCreate, db: Session = Depends(get_db)):
-    return services.create_leave_request(db=db, leave_request=leave_request)
-
-@api_router.get("/leave-requests/", response_model=List[schemas.LeaveRequestInDB])
-def list_leave_requests(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return services.get_leave_requests(db=db, skip=skip, limit=limit)
-
-@api_router.get("/leave-requests/{request_id}", response_model=schemas.LeaveRequestInDB)
-def get_leave_request(request_id: int, db: Session = Depends(get_db)):
-    obj = services.get_leave_request(db=db, request_id=request_id)
-    if not obj:
-        raise HTTPException(status_code=404, detail="ไม่พบคำขอลา")
-    return obj
-
-@api_router.put("/leave-requests/{request_id}", response_model=schemas.LeaveRequestInDB)
-def update_leave_request(request_id: int, leave_request_update: schemas.LeaveRequestUpdate, db: Session = Depends(get_db)):
-    return services.update_leave_request(db=db, request_id=request_id, leave_request_update=leave_request_update)
-
-@api_router.delete("/leave-requests/{request_id}", status_code=status.HTTP_200_OK)
-def delete_leave_request(request_id: int, db: Session = Depends(get_db)):
-    deleted = services.delete_leave_request(db=db, request_id=request_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="ไม่พบคำขอลา")
-    return {"message": "คำขอลาถูกลบแล้ว"}
-
 # ---------- Overtime Types ----------
 @api_router.post("/ot-types/", response_model=schemas.OvertimeTypeInDB, status_code=status.HTTP_201_CREATED)
 async def create_ot_type(request: Request, db: Session = Depends(get_db)):
-    # รองรับทั้ง JSON และ form (multipart/-urlencoded)
     ctype = (request.headers.get("content-type") or "").lower()
     if ctype.startswith("application/json"):
         data = await request.json()

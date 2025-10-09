@@ -1,71 +1,95 @@
+# modules/meeting/models.py
 from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey, Table
-from sqlalchemy.orm import relationship, declarative_base
 
-Base = declarative_base()
-
-# --- M2M: Room <-> Amenity
-room_amenity = Table(
-    "room_amenity",
-    Base.metadata,
-    Column("room_id", ForeignKey("meeting_rooms.id"), primary_key=True),
-    Column("amenity_id", ForeignKey("meeting_amenities.id"), primary_key=True),
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    ForeignKey,
+    Text,
+    Enum as SAEnum,
 )
+from sqlalchemy.orm import relationship
+
+from database.base import Base
+
 
 class BookingStatus(str, Enum):
-    PENDING = "PENDING"
-    APPROVED = "APPROVED"
-    REJECTED = "REJECTED"
-    CANCELLED = "CANCELLED"
+    PENDING = "Pending"
+    BOOKED = "Booked"
+    CANCELLED = "Cancelled"
+
+
+class RoomApproval(str, Enum):
+    PENDING = "Pending"
+    APPROVED = "Approved"
+    REJECTED = "Rejected"
 
 class MeetingRoom(Base):
     __tablename__ = "meeting_rooms"
-    id = Column(Integer, primary_key=True)
-    code = Column(String(50), unique=True, index=True, nullable=True)
-    name = Column(String(200), nullable=False)
-    capacity = Column(Integer, default=0)
-    description = Column(Text, nullable=True)
-    image_url = Column(Text, nullable=True)        # ถ้าอยากเก็บหลายรูป ให้ทำตาราง images แยก
-    is_active = Column(Boolean, default=True)
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False, unique=True)
+    location = Column(String(200), nullable=True)
+    capacity = Column(Integer, nullable=True)
 
-    amenities = relationship("Amenity", secondary=room_amenity, back_populates="rooms")
-    bookings = relationship("RoomBooking", back_populates="room", cascade="all,delete")
+    # NEW
+    image_url = Column(String(300), nullable=True)
+    contact_name = Column(String(120), nullable=True)
+    coordinator_employee_id = Column(Integer, nullable=True)
+    coordinator_email = Column(String(200), nullable=True)
+    approval_status = Column(SAEnum(RoomApproval), default=RoomApproval.APPROVED, nullable=False)
 
-class Amenity(Base):
-    __tablename__ = "meeting_amenities"
-    id = Column(Integer, primary_key=True)
-    name = Column(String(100), unique=True, nullable=False)
-    rooms = relationship("MeetingRoom", secondary=room_amenity, back_populates="amenities")
+    notes = Column(Text, nullable=True)
+    is_active = Column(Integer, default=1)
 
-class RoomBooking(Base):
-    __tablename__ = "room_bookings"
-    id = Column(Integer, primary_key=True)
-    room_id = Column(Integer, ForeignKey("meeting_rooms.id"), nullable=False)
+    bookings = relationship("Booking", back_populates="room", cascade="all, delete-orphan")
 
-    # ข้อมูลการจอง
-    title = Column(String(255), nullable=False)               # หัวข้อการประชุม
+class Booking(Base):
+    __tablename__ = "meeting_bookings"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    room_id = Column(Integer, ForeignKey("meeting_rooms.id", ondelete="CASCADE"), nullable=False)
+    subject = Column(String(200), nullable=False)
+    requester_email = Column(String(200), nullable=False)
+
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=False)
-    participants = Column(Integer, default=0)                 # จำนวนผู้เข้าร่วม
 
-    # ผู้จอง (เลือกจากระบบหรืออิสระก็ได้)
-    booked_by_user_id = Column(Integer, nullable=True)
-    booked_by_name = Column(String(200), nullable=False)
-    booked_by_email = Column(String(255), nullable=True)
+    status = Column(SAEnum(BookingStatus), default=BookingStatus.BOOKED, nullable=False)
+    notes = Column(Text, nullable=True)
 
-    # ผู้ประสานงาน / ผู้ติดต่อ (เลือกจากผู้ใช้หรือกรอกเอง)
-    coordinator_user_id = Column(Integer, nullable=True)
-    coordinator_name = Column(String(200), nullable=True)
-    coordinator_email = Column(String(255), nullable=True)
-
-    contact_name = Column(String(200), nullable=True)
-    contact_email = Column(String(255), nullable=True)
-
-    # สถานะ
-    status = Column(String(20), default=BookingStatus.PENDING.value)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     room = relationship("MeetingRoom", back_populates="bookings")
+    attendees = relationship(
+        "BookingAttendee",
+        back_populates="booking",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class BookingAttendee(Base):
+    __tablename__ = "meeting_booking_attendees"
+
+    id = Column(Integer, primary_key=True, index=True)
+    booking_id = Column(
+        Integer,
+        ForeignKey("meeting_bookings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # ผูกกับพนักงาน (ถ้ามี) เก็บเป็น id ไว้ก่อน เผื่อ lookup อีเมลจาก data_management
+    employee_id = Column(Integer, nullable=True)
+
+    # กันเหนียว เก็บชื่อ/อีเมลที่ใช้ตอนสร้างไว้ด้วย (เผื่อพนักงานถูกลบ/แก้ในอนาคต)
+    attendee_name = Column(String(200), nullable=True)
+    attendee_email = Column(String(200), nullable=True)
+
+    booking = relationship("Booking", back_populates="attendees")

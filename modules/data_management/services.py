@@ -229,6 +229,20 @@ def delete_position(db: Session, position_id: int):
 # Employee Services
 # -------------------------------------------------
 
+def get_employee_by_email(db: Session, email: str):
+    return (
+        db.query(models.Employee)
+        .filter(models.Employee.email == email)
+        .first()
+    )
+
+def get_employee_by_phone_number(db: Session, phone_number: str):
+    return (
+        db.query(models.Employee)
+        .filter(models.Employee.phone_number == phone_number)
+        .first()
+    )
+
 def get_employee(db: Session, employee_id: int):
     return (
         db.query(models.Employee)
@@ -264,16 +278,34 @@ def get_employees(db: Session, skip: int = 0, limit: int = 100):
         .order_by(models.Employee.id.desc())
         .offset(skip).limit(limit).all()
     )
+    
+def _clean_optional_str(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s or None  # "" -> None
 
 def create_employee(db: Session, employee: schemas.EmployeeCreate):
-    if employee.id_card_number and get_employee_by_id_card_number(db, id_card_number=employee.id_card_number):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="ID card number already exists")
-    if get_employee_by_employee_id_number(db, employee_id_number=employee.employee_id_number):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Employee ID number already exists")
-
     data = employee.model_dump()
-    # ถ้าต้องการ normalize enum ที่ไม่ได้ส่งมาเป๊ะ ให้เปิดใช้บรรทัดถัดไป
-    # data["employee_status"] = _normalize_employee_status(data.get("employee_status"))
+
+    # ทำความสะอาดช่องที่เป็นสตริงอาจจะว่าง
+    for k in (
+        "email", "phone_number", "profile_picture_path", "application_documents_paths",
+        "bank_account_number", "bank_name", "address", "id_card_number"
+    ):
+        if k in data:
+            data[k] = _clean_optional_str(data[k])
+
+    # เช็กซ้ำเฉพาะเมื่อมีค่าจริง
+    if data.get("email") and get_employee_by_email(db, email=data["email"]):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists")
+    if data.get("phone_number") and get_employee_by_phone_number(db, phone_number=data["phone_number"]):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Phone number already exists")
+
+    if data.get("id_card_number") and get_employee_by_id_card_number(db, id_card_number=data["id_card_number"]):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="ID card number already exists")
+    if get_employee_by_employee_id_number(db, employee_id_number=data["employee_id_number"]):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Employee ID number already exists")
 
     db_employee = models.Employee(**data)
     db.add(db_employee)
@@ -283,10 +315,9 @@ def create_employee(db: Session, employee: schemas.EmployeeCreate):
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Employee unique constraint violated (ID card or employee ID number)",
+            detail="Employee unique constraint violated (ID card/employee ID/email/phone)",
         )
     db.refresh(db_employee)
-    # preload ความสัมพันธ์หลักก่อนคืน (กัน DetachedInstanceError)
     db.refresh(db_employee, attribute_names=["department", "position"])
     return db_employee
 
@@ -297,21 +328,39 @@ def update_employee(db: Session, employee_id: int, employee_update: schemas.Empl
 
     update_data = employee_update.model_dump(exclude_unset=True)
 
-    if "id_card_number" in update_data and update_data["id_card_number"]:
-        if update_data["id_card_number"] != db_employee.id_card_number:
-            existing = get_employee_by_id_card_number(db, id_card_number=update_data["id_card_number"])
-            if existing and existing.id != employee_id:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="New ID card number already exists")
+    # ทำความสะอาดช่องสตริง
+    for k in (
+        "email", "phone_number", "profile_picture_path", "application_documents_paths",
+        "bank_account_number", "bank_name", "address", "id_card_number", "first_name", "last_name"
+    ):
+        if k in update_data:
+            update_data[k] = _clean_optional_str(update_data[k])
 
-    if "employee_id_number" in update_data and update_data["employee_id_number"]:
-        if update_data["employee_id_number"] != db_employee.employee_id_number:
-            existing = get_employee_by_employee_id_number(db, employee_id_number=update_data["employee_id_number"])
-            if existing and existing.id != employee_id:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="New employee ID number already exists")
+    # ถ้าค่าหลังทำความสะอาดเป็น None/ว่าง ให้ "ลบ key" ทิ้ง -> จะไม่ไปทับค่าเดิมใน DB
+    for k in list(update_data.keys()):
+        if update_data[k] is None:
+            del update_data[k]
 
-    # ถ้าต้องการ normalize enum ที่ไม่ได้ส่งมาเป๊ะ ให้เปิดใช้บรรทัดถัดไป
-    # if "employee_status" in update_data:
-    #     update_data["employee_status"] = _normalize_employee_status(update_data["employee_status"])
+    # ตรวจ uniqueness เฉพาะ key ที่ยังเหลืออยู่
+    if "id_card_number" in update_data:
+        existing = get_employee_by_id_card_number(db, id_card_number=update_data["id_card_number"])
+        if existing and existing.id != employee_id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="New ID card number already exists")
+
+    if "employee_id_number" in update_data:
+        existing = get_employee_by_employee_id_number(db, employee_id_number=update_data["employee_id_number"])
+        if existing and existing.id != employee_id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="New employee ID number already exists")
+
+    if "email" in update_data:
+        existing = get_employee_by_email(db, email=update_data["email"])
+        if existing and existing.id != employee_id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="New email already exists")
+
+    if "phone_number" in update_data:
+        existing = get_employee_by_phone_number(db, phone_number=update_data["phone_number"])
+        if existing and existing.id != employee_id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="New phone number already exists")
 
     for key, value in update_data.items():
         setattr(db_employee, key, value)

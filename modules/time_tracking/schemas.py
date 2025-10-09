@@ -140,6 +140,36 @@ class TimeEntryBase(BaseModel):
 class TimeEntryCreate(TimeEntryBase):
     pass
 
+class LeaveBalanceUpdate(BaseModel):
+    opening: Optional[float] = None
+    accrued: Optional[float] = None
+    adjusted: Optional[float] = None
+    carry_in: Optional[float] = None
+    
+class LeaveTypeOut(BaseModel):
+    id: int
+    name: str
+    annual_quota: float | int = 0
+    affects_balance: bool = True
+    is_paid_leave: bool = True
+    description: Optional[str] = None
+    class Config: from_attributes = True
+    
+class LeaveBalanceOut(BaseModel):
+    id: int
+    employee_id: int
+    leave_type_id: int
+    year: int
+    opening: float = 0
+    accrued: float = 0
+    used: float = 0
+    adjusted: float = 0
+    carry_in: float = 0
+    available: float = 0
+    # เพิ่ม metadata ฝั่งแสดงผล (ถ้าต้องการ)
+    leave_type_name: str
+    class Config: from_attributes = True
+
 class TimeEntryUpdate(BaseModel):
     employee_id: Optional[int] = None
     check_in_time: Optional[datetime] = None
@@ -150,6 +180,26 @@ class TimeEntryUpdate(BaseModel):
     is_early_exit: Optional[bool] = None
     early_exit_minutes: Optional[float] = None
     status: Optional[models.TimeEntryStatus] = None
+    
+class LeaveBalanceBase(BaseModel):
+    employee_id: int
+    leave_type_id: int
+    year: int
+    opening: float = 0
+    accrued: float = 0
+    used: float = 0
+    adjusted: float = 0
+    carry_in: float = 0
+
+class LeaveBalanceInDB(LeaveBalanceBase):
+    id: int
+    available: float
+    class Config:
+        orm_mode = True
+
+class LeaveBalanceAdjust(BaseModel):
+    adjusted_delta: float           # + เพิ่ม / - ลด
+    note: Optional[str] = None
 
 class TimeEntryInDB(TimeEntryBase):
     id: int
@@ -160,8 +210,12 @@ class TimeEntryInDB(TimeEntryBase):
 class LeaveTypeBase(BaseModel):
     name: str
     description: Optional[str] = None
-    max_days_per_year: int = 0
+    affects_balance: bool = True
     is_paid_leave: bool = True
+    annual_quota: float = 0.0
+    # ✅ ใหม่
+    accrue_per_year: float = 0.0
+    max_quota: float = 0.0
 
 class LeaveTypeCreate(LeaveTypeBase):
     pass
@@ -169,12 +223,17 @@ class LeaveTypeCreate(LeaveTypeBase):
 class LeaveTypeUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    max_days_per_year: Optional[int] = None
+    affects_balance: Optional[bool] = None
     is_paid_leave: Optional[bool] = None
+    annual_quota: Optional[float] = None
+    # ✅ ใหม่
+    accrue_per_year: Optional[float] = None
+    max_quota: Optional[float] = None
 
 class LeaveTypeInDB(LeaveTypeBase):
     id: int
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True
 
 # --- Leave Request Schemas ---
 class LeaveRequestBase(BaseModel):

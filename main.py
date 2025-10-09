@@ -6,21 +6,20 @@ from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-
 from sqlalchemy import inspect, text
+
+# DB
+from database.connection import create_all_tables, SessionLocal, engine
 
 # Routers
 from modules.data_management import routes as data_management_routes
 from modules.payroll import routes as payroll_routes
 from modules.time_tracking import routes as time_tracking_routes
-
-from database.connection import create_all_tables, SessionLocal, engine
 from modules.meeting.routes import api as meeting_api, pages as meeting_pages
-from database.base import Base
-from database.connection import engine
+
+# Migrations/seed helpers
 from modules.data_management.migrations import migrate_employees_contact_columns
 from modules.meeting.migrations import migrate_meeting_rooms_columns
-
 
 # Windows event loop policy (dev on Windows)
 if sys.platform.startswith("win"):
@@ -38,7 +37,7 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: lock down in production
+    allow_origins=["*"],  # TODO: restrict in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,6 +48,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 app.state.templates = templates
 
+# Meeting (API + Pages)
 app.include_router(meeting_api)
 app.include_router(meeting_pages)
 
@@ -70,7 +70,7 @@ def on_startup():
     except Exception as e:
         print(f"⚠️ Migrate warning (meeting_rooms): {e}")
 
-    # --- Lightweight migrate: working_schedules add new columns if missing ---
+    # --- Lightweight migrate: working_schedules add/ensure columns ---
     try:
         with engine.begin() as conn:
             insp = inspect(engine)
@@ -79,7 +79,6 @@ def on_startup():
             def add_col(sql: str):
                 conn.execute(text(sql))
 
-            # ตารางเก่าอาจยังไม่มี employee_id
             if "employee_id" not in cols:
                 add_col("ALTER TABLE working_schedules ADD COLUMN employee_id INTEGER")
                 print("✓ Added working_schedules.employee_id")
@@ -88,7 +87,6 @@ def on_startup():
                 add_col("ALTER TABLE working_schedules ADD COLUMN is_working_day BOOLEAN DEFAULT 1")
             if "late_grace_min" not in cols:
                 add_col("ALTER TABLE working_schedules ADD COLUMN late_grace_min INTEGER")
-            # รองรับชื่อเก่า early_grace_min: ถ้าไม่มีทั้งสอง ค่อยเพิ่มคอลัมน์ใหม่
             if "early_leave_grace_min" not in cols and "early_grace_min" not in cols:
                 add_col("ALTER TABLE working_schedules ADD COLUMN early_leave_grace_min INTEGER")
             if "absence_after_min" not in cols:
@@ -127,7 +125,7 @@ def on_startup():
         ensure_default_scheme_and_formulas(db)
         print("Ensured default payroll scheme & formulas.")
 
-    # --- Seed default values in working_schedules if null ---
+    # --- Seed defaults for working_schedules ---
     try:
         with engine.begin() as conn:
             conn.execute(text("""
@@ -137,19 +135,17 @@ def on_startup():
                     absence_after_min = COALESCE(absence_after_min, 240),
                     standard_daily_minutes = COALESCE(standard_daily_minutes, 480)
             """))
-            # ไม่บังคับ break_minutes_override เพราะคำนวณจาก break_start/end แทนได้
         print("✓ Seeded defaults for working_schedules.")
     except Exception as e:
         print(f"⚠️ Seed warning: {e}")
-        
-            # --- Lightweight migrate: attendance_daily add early_leave_minutes if missing ---
+
+    # --- Lightweight migrate: attendance_daily add early_leave_minutes if missing ---
     try:
         with engine.begin() as conn:
             insp = inspect(engine)
             cols = {c["name"] for c in insp.get_columns("attendance_daily")}
             if "early_leave_minutes" not in cols:
                 conn.execute(text("ALTER TABLE attendance_daily ADD COLUMN early_leave_minutes INTEGER"))
-                # backfill ให้เป็น 0 เพื่อกัน None ไปชน validation/คำนวณ
                 conn.execute(text("UPDATE attendance_daily SET early_leave_minutes = 0 WHERE early_leave_minutes IS NULL"))
                 print("✓ Migrated attendance_daily.early_leave_minutes")
     except Exception as e:
@@ -169,15 +165,18 @@ async def redirect_to_payroll_allowance_types():
     return RedirectResponse(url="/payroll/allowance-types", status_code=302)
 
 # ---------- Routers ----------
-# API
+# NOTE: อย่าใส่ prefix ซ้ำกับที่ประกาศใน router แล้ว
+# Data management API: (module นี้ประกาศ path ภายในเอง → ใส่ prefix ที่นี่)
 app.include_router(data_management_routes.api_router, prefix="/api/v1/data-management", tags=["Data Management API"])
+# Payroll API:
 app.include_router(payroll_routes.api_router,          prefix="/api/v1/payroll",         tags=["Payroll API"])
-app.include_router(time_tracking_routes.api_router,    prefix="/api/v1/time-tracking",   tags=["Time Tracking API"])
-# UI
+# Time-tracking API: api_router มี prefix แล้ว → ไม่ต้องใส่ prefix ที่นี่ซ้ำ
+app.include_router(time_tracking_routes.api_router)
+
+# UI routers (prefix ที่นี่ตามเมนู)
 app.include_router(data_management_routes.ui_router, prefix="/data-management", include_in_schema=False)
 app.include_router(payroll_routes.ui_router,         prefix="/payroll",         include_in_schema=False)
 app.include_router(time_tracking_routes.ui_router,   prefix="/time-tracking",   include_in_schema=False)
-
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

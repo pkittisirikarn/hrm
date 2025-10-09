@@ -9,11 +9,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const addLastNameInput = document.getElementById('addLastName');
     const addDateOfBirthInput = document.getElementById('addDateOfBirth');
     const addAddressInput = document.getElementById('addAddress');
-    const addIdCardNumberInput = document.getElementById('addIdCardNumber'); // Now optional
-    const addProfilePictureFileInput = document.getElementById('addProfilePictureFile'); // File input
-    const addProfilePicturePreview = document.getElementById('addProfilePicturePreview'); // Image preview
-    const addApplicationDocumentsFilesInput = document.getElementById('addApplicationDocumentsFiles'); // Multiple file input
-    const addApplicationDocumentsPreview = document.getElementById('addApplicationDocumentsPreview'); // List of file names
+    const addIdCardNumberInput = document.getElementById('addIdCardNumber'); // optional
+    const addEmailInput = document.getElementById('addEmail');               // ✅ NEW
+    const addPhoneNumberInput = document.getElementById('addPhoneNumber');   // ✅ NEW
+    const addProfilePictureFileInput = document.getElementById('addProfilePictureFile');
+    const addProfilePicturePreview = document.getElementById('addProfilePicturePreview');
+    const addApplicationDocumentsFilesInput = document.getElementById('addApplicationDocumentsFiles');
+    const addApplicationDocumentsPreview = document.getElementById('addApplicationDocumentsPreview');
     const addBankAccountNumberInput = document.getElementById('addBankAccountNumber');
     const addBankNameInput = document.getElementById('addBankName');
     const addHireDateInput = document.getElementById('addHireDate');
@@ -39,13 +41,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const editLastNameInput = document.getElementById('editLastName');
     const editDateOfBirthInput = document.getElementById('editDateOfBirth');
     const editAddressInput = document.getElementById('editAddress');
-    const editIdCardNumberInput = document.getElementById('editIdCardNumber'); // Now optional
-    const editProfilePictureFileInput = document.getElementById('editProfilePictureFile'); // File input
-    const editProfilePicturePreview = document.getElementById('editProfilePicturePreview'); // Image preview
-    const clearEditProfilePictureButton = document.getElementById('clearEditProfilePicture'); // Clear button
-    const editApplicationDocumentsFilesInput = document.getElementById('editApplicationDocumentsFiles'); // Multiple file input
-    const editApplicationDocumentsPreview = document.getElementById('editApplicationDocumentsPreview'); // List of file names
-    const clearEditApplicationDocumentsButton = document.getElementById('clearEditApplicationDocuments'); // Clear button
+    const editIdCardNumberInput = document.getElementById('editIdCardNumber'); // optional
+    const editEmailInput = document.getElementById('editEmail');               // ✅ NEW
+    const editPhoneNumberInput = document.getElementById('editPhoneNumber');   // ✅ NEW
+    const editProfilePictureFileInput = document.getElementById('editProfilePictureFile');
+    const editProfilePicturePreview = document.getElementById('editProfilePicturePreview');
+    const clearEditProfilePictureButton = document.getElementById('clearEditProfilePicture');
+    const editApplicationDocumentsFilesInput = document.getElementById('editApplicationDocumentsFiles');
+    const editApplicationDocumentsPreview = document.getElementById('editApplicationDocumentsPreview');
+    const clearEditApplicationDocumentsButton = document.getElementById('clearEditApplicationDocuments');
     const editBankAccountNumberInput = document.getElementById('editBankAccountNumber');
     const editBankNameInput = document.getElementById('editBankName');
     const editHireDateInput = document.getElementById('editHireDate');
@@ -64,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 5000);
     }
 
-    // --- Helper for formatting API error detail (more robust for non-JSON) ---
+    // --- Helper for formatting API error detail ---
     async function formatApiErrorDetail(response) {
         let errorMessage = `เกิดข้อผิดพลาดในการดำเนินการ (HTTP Status: ${response.status})`;
         const contentType = response.headers.get('content-type');
@@ -87,19 +91,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (e) {
                 console.error("Failed to parse JSON error response:", e);
-                // Fallback to text if JSON parsing fails even though content-type is json
                 errorMessage = `เกิดข้อผิดพลาดในการอ่านรายละเอียดข้อผิดพลาดจากเซิร์ฟเวอร์ (JSON Parse Error). Status: ${response.status}.`;
                 try {
                     const text = await response.text();
-                    if (text) errorMessage += ` Response Text: ${text.substring(0, 200)}...`; // Show first 200 chars
+                    if (text) errorMessage += ` Response Text: ${text.substring(0, 200)}...`;
                 } catch (err) { /* ignore */ }
             }
         } else {
-            // Not JSON, read as text
             try {
                 const text = await response.text();
                 errorMessage = `เซิร์ฟเวอร์เกิดข้อผิดพลาด. Status: ${response.status}. `;
-                if (text) errorMessage += `รายละเอียด: ${text.substring(0, 200)}...`; // Show first 200 chars
+                if (text) errorMessage += `รายละเอียด: ${text.substring(0, 200)}...`;
             } catch (e) {
                 console.error("Failed to read non-JSON error response:", e);
                 errorMessage = `เซิร์ฟเวอร์เกิดข้อผิดพลาดที่ไม่รู้จัก. Status: ${response.status}.`;
@@ -135,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Preview function for multiple PDF files ---
     function previewPdfFiles(inputElement, previewContainer) {
-        previewContainer.innerHTML = ''; // Clear previous previews
+        previewContainer.innerHTML = '';
         if (inputElement.files && inputElement.files.length > 0) {
             Array.from(inputElement.files).forEach(file => {
                 const fileItem = document.createElement('div');
@@ -149,19 +151,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-    // --- Fetch Departments for dropdown ---
+    // --- Fetch dropdowns ---
     async function fetchDepartmentsForDropdown() {
         try {
             const response = await fetch(`${API_BASE_URL}/departments/`);
-            if (!response.ok) {
-                const errorMsg = await formatApiErrorDetail(response);
-                throw new Error(errorMsg);
-            }
+            if (!response.ok) throw new Error(await formatApiErrorDetail(response));
             const departments = await response.json();
-            
+
             addDepartmentIdSelect.innerHTML = '<option value="">เลือกแผนก</option>';
-            editDepartmentIdSelect.innerHTML = ''; 
+            editDepartmentIdSelect.innerHTML = '';
 
             departments.forEach(dept => {
                 const optionAdd = document.createElement('option');
@@ -180,16 +178,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Fetch Positions for dropdown ---
     async function fetchPositionsForDropdown() {
         try {
             const response = await fetch(`${API_BASE_URL}/positions/`);
-            if (!response.ok) {
-                const errorMsg = await formatApiErrorDetail(response);
-                throw new Error(errorMsg);
-            }
+            if (!response.ok) throw new Error(await formatApiErrorDetail(response));
             const positions = await response.json();
-            
+
             addPositionIdSelect.innerHTML = '<option value="">เลือกตำแหน่ง</option>';
             editPositionIdSelect.innerHTML = '';
 
@@ -210,27 +204,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Fetch Employees from API and Render Table ---
+    // --- Fetch Employees and Render Table ---
     async function fetchEmployees() {
         employeesTableBody.innerHTML = `
             <tr>
-                <td colspan="10" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                <td colspan="12" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
                     กำลังโหลดข้อมูล...
                 </td>
             </tr>`;
         try {
             const response = await fetch(`${API_BASE_URL}/employees/`);
-            if (!response.ok) {
-                const errorMsg = await formatApiErrorDetail(response);
-                throw new Error(errorMsg);
-            }
+            if (!response.ok) throw new Error(await formatApiErrorDetail(response));
             const employees = await response.json();
             renderEmployeesTable(employees);
         } catch (error) {
             console.error('Error fetching employees:', error);
             employeesTableBody.innerHTML = `
                 <tr>
-                    <td colspan="10" class="px-6 py-4 whitespace-nowrap text-center text-sm text-red-600">
+                    <td colspan="12" class="px-6 py-4 whitespace-nowrap text-center text-sm text-red-600">
                         เกิดข้อผิดพลาดในการโหลดพนักงาน: ${error.message}
                     </td>
                 </tr>`;
@@ -244,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (employees.length === 0) {
             employeesTableBody.innerHTML = `
                 <tr>
-                    <td colspan="10" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                    <td colspan="12" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
                         ยังไม่มีข้อมูลพนักงาน
                     </td>
                 </tr>`;
@@ -258,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const profilePictureHtml = employee.profile_picture_path
                 ? `<img src="${employee.profile_picture_path}" alt="Profile" class="profile-img-preview mx-auto">`
                 : `<span class="text-gray-500 text-xs">ไม่มีรูป</span>`;
-            
+
             let documentsHtml = '<span class="text-gray-500 text-xs">ไม่มีเอกสาร</span>';
             if (employee.application_documents_paths) {
                 try {
@@ -275,12 +266,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-
             row.innerHTML = `
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${employee.id}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${employee.employee_id_number}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${employee.first_name} ${employee.last_name}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${employee.id_card_number || '-'}</td>
+                <!-- ✅ New columns -->
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${employee.email || '-'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${employee.phone_number || '-'}</td>
                 <td class="px-6 py-4 text-center">
                     ${profilePictureHtml}
                 </td>
@@ -297,26 +290,27 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         });
 
-        // Add Event Listeners for Edit and Delete buttons
+        // Edit buttons
         document.querySelectorAll('.edit-btn').forEach(button => {
             button.addEventListener('click', async (event) => {
                 const id = event.target.dataset.id;
                 try {
                     const response = await fetch(`${API_BASE_URL}/employees/${id}`);
-                    if (!response.ok) {
-                        const errorMsg = await formatApiErrorDetail(response);
-                        throw new Error(errorMsg);
-                    }
+                    if (!response.ok) throw new Error(await formatApiErrorDetail(response));
                     const employee = await response.json();
-                    
+
                     editEmployeeIdInput.value = employee.id;
                     editEmployeeIdNumberInput.value = employee.employee_id_number;
                     editFirstNameInput.value = employee.first_name;
                     editLastNameInput.value = employee.last_name;
-                    editDateOfBirthInput.value = formatDate(employee.date_of_birth); // Format date
+                    editDateOfBirthInput.value = formatDate(employee.date_of_birth);
                     editAddressInput.value = employee.address;
-                    editIdCardNumberInput.value = employee.id_card_number || ''; // Now optional
-                    
+                    editIdCardNumberInput.value = employee.id_card_number || '';
+
+                    // ✅ New fields
+                    editEmailInput.value = employee.email || '';
+                    editPhoneNumberInput.value = employee.phone_number || '';
+
                     // Profile picture preview
                     if (employee.profile_picture_path) {
                         editProfilePicturePreview.src = employee.profile_picture_path;
@@ -325,11 +319,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         editProfilePicturePreview.src = '#';
                         editProfilePicturePreview.style.display = 'none';
                     }
-                    editProfilePictureFileInput.value = ''; // Clear file input on modal open
+                    editProfilePictureFileInput.value = '';
 
                     // Application documents preview
-                    editApplicationDocumentsPreview.innerHTML = ''; // Clear previous
-                    editApplicationDocumentsFilesInput.value = ''; // Clear file input
+                    editApplicationDocumentsPreview.innerHTML = '';
+                    editApplicationDocumentsFilesInput.value = '';
                     if (employee.application_documents_paths) {
                         try {
                             const docs = JSON.parse(employee.application_documents_paths);
@@ -353,16 +347,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     editBankAccountNumberInput.value = employee.bank_account_number || '';
                     editBankNameInput.value = employee.bank_name || '';
-                    editHireDateInput.value = formatDate(employee.hire_date); // Format date
-                    editTerminationDateInput.value = employee.termination_date ? formatDate(employee.termination_date) : ''; // Format date
-                    
-                    // Convert stored enum value to display value for select
-                    editEmployeeStatusSelect.value = employee.employee_status; // This will now match directly
-
+                    editHireDateInput.value = formatDate(employee.hire_date);
+                    editTerminationDateInput.value = employee.termination_date ? formatDate(employee.termination_date) : '';
+                    editEmployeeStatusSelect.value = employee.employee_status;
                     editDepartmentIdSelect.value = employee.department_id;
                     editPositionIdSelect.value = employee.position_id;
 
-                    editEmployeeModal.style.display = 'flex'; // Show Modal
+                    editEmployeeModal.style.display = 'flex';
                 } catch (error) {
                     console.error('Error fetching employee for edit:', error);
                     showMessage(employeesMessage, `เกิดข้อผิดพลาดในการโหลดพนักงานเพื่อแก้ไข: ${error.message}`, true);
@@ -370,22 +361,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Event listener for profile picture file input change (Add form)
+        // Add form previews
         addProfilePictureFileInput.addEventListener('change', () => {
             previewImage(addProfilePictureFileInput, addProfilePicturePreview);
         });
-
-        // Event listener for application documents file input change (Add form)
         addApplicationDocumentsFilesInput.addEventListener('change', () => {
             previewPdfFiles(addApplicationDocumentsFilesInput, addApplicationDocumentsPreview);
         });
 
-        // Event listener for profile picture file input change (Edit form)
+        // Edit form previews
         editProfilePictureFileInput.addEventListener('change', () => {
             previewImage(editProfilePictureFileInput, editProfilePicturePreview);
         });
-
-        // Event listener for application documents file input change (Edit form)
         editApplicationDocumentsFilesInput.addEventListener('change', () => {
             previewPdfFiles(editApplicationDocumentsFilesInput, editApplicationDocumentsPreview);
         });
@@ -395,29 +382,25 @@ document.addEventListener('DOMContentLoaded', () => {
             editProfilePictureFileInput.value = '';
             editProfilePicturePreview.src = '#';
             editProfilePicturePreview.style.display = 'none';
-            clearEditProfilePictureButton.dataset.cleared = 'true'; // Set flag for clearing
+            clearEditProfilePictureButton.dataset.cleared = 'true';
         });
 
         clearEditApplicationDocumentsButton.addEventListener('click', () => {
             editApplicationDocumentsFilesInput.value = '';
             editApplicationDocumentsPreview.innerHTML = '';
-            clearEditApplicationDocumentsButton.dataset.cleared = 'true'; // Set flag for clearing
+            clearEditApplicationDocumentsButton.dataset.cleared = 'true';
         });
 
+        // Delete buttons
         document.querySelectorAll('.delete-btn').forEach(button => {
             button.addEventListener('click', async (event) => {
                 const id = event.target.dataset.id;
                 if (confirm(`คุณแน่ใจหรือไม่ที่ต้องการลบพนักงาน ID: ${id} นี้?`)) {
                     try {
-                        const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
-                            method: 'DELETE',
-                        });
-                        if (!response.ok) {
-                            const errorMsg = await formatApiErrorDetail(response);
-                            throw new Error(errorMsg);
-                        }
+                        const response = await fetch(`${API_BASE_URL}/employees/${id}`, { method: 'DELETE' });
+                        if (!response.ok) throw new Error(await formatApiErrorDetail(response));
                         showMessage(employeesMessage, 'ลบพนักงานเรียบร้อยแล้ว');
-                        fetchEmployees(); // Reload data
+                        fetchEmployees();
                     } catch (error) {
                         console.error('Error deleting employee:', error);
                         showMessage(employeesMessage, `เกิดข้อผิดพลาด: ${error.message}`, true);
@@ -427,9 +410,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Function to translate EmployeeStatus enum to Thai ---
+    // --- Translate EmployeeStatus ---
     function translateEmployeeStatus(status) {
-        // These are the actual values from the Python Enum
         switch(status) {
             case "Active": return "ใช้งาน";
             case "Inactive": return "ไม่ใช้งาน";
@@ -439,94 +421,78 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Upload File Helper Function ---
+    // --- Upload helpers ---
     async function uploadFile(employeeId, fileType, file) {
         if (!file) return null;
 
         const formData = new FormData();
         formData.append('file', file);
 
-        let url = '';
-        if (fileType === 'profile_picture') {
-            url = `${API_BASE_URL}/employees/${employeeId}/upload-profile-picture`;
-        } else { // documents - this case won't be hit for single file uploads
-            url = `${API_BASE_URL}/employees/${employeeId}/upload-documents`;
-        }
+        const url = (fileType === 'profile_picture')
+            ? `${API_BASE_URL}/employees/${employeeId}/upload-profile-picture`
+            : `${API_BASE_URL}/employees/${employeeId}/upload-documents`;
 
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                body: formData,
-            });
-            if (!response.ok) {
-                const errorMsg = await formatApiErrorDetail(response);
-                throw new Error(errorMsg);
-            }
+            const response = await fetch(url, { method: 'POST', body: formData });
+            if (!response.ok) throw new Error(await formatApiErrorDetail(response));
             const result = await response.json();
-            return result.file_path; // Return single path
+            return result.file_path;
         } catch (error) {
             console.error(`Error during file upload (${file.name}, ${fileType}):`, error);
-            throw error; // Re-throw to be caught by the form submission handler
+            throw error;
         }
     }
 
-    // --- Upload Multiple Files Helper Function ---
     async function uploadMultipleFiles(employeeId, files) {
         if (!files || files.length === 0) return [];
-
         const formData = new FormData();
-        Array.from(files).forEach(file => {
-            formData.append('files', file); // Append each file with the same 'files' key
-        });
-
+        Array.from(files).forEach(file => formData.append('files', file));
         const url = `${API_BASE_URL}/employees/${employeeId}/upload-documents`;
-
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                body: formData,
-            });
-            if (!response.ok) {
-                const errorMsg = await formatApiErrorDetail(response);
-                throw new Error(errorMsg);
-            }
+            const response = await fetch(url, { method: 'POST', body: formData });
+            if (!response.ok) throw new Error(await formatApiErrorDetail(response));
             const result = await response.json();
-            return result.uploaded_files; // Returns array of paths
+            return result.uploaded_files;
         } catch (error) {
             console.error('Error during multiple file upload (documents):', error);
             throw error;
         }
     }
 
-
-    // --- Event Listener for Add Employee Form ---
+    // --- Add Employee ---
     addEmployeeForm.addEventListener('submit', async (event) => {
         event.preventDefault();
-        
+
         const employeeIdNumber = addEmployeeIdNumberInput.value.trim();
         const firstName = addFirstNameInput.value.trim();
         const lastName = addLastNameInput.value.trim();
         const dateOfBirth = addDateOfBirthInput.value;
         const address = addAddressInput.value.trim();
-        const idCardNumber = addIdCardNumberInput.value.trim(); // Optional now
-        const profilePictureFile = addProfilePictureFileInput.files[0]; // Get file object
-        const applicationDocumentsFiles = addApplicationDocumentsFilesInput.files; // Get FileList object
+        const idCardNumber = addIdCardNumberInput.value.trim();
+        const email = (addEmailInput.value || '').trim();                 // ✅ NEW
+        const phoneNumber = (addPhoneNumberInput.value || '').trim();     // ✅ NEW
+        const profilePictureFile = addProfilePictureFileInput.files[0];
+        const applicationDocumentsFiles = addApplicationDocumentsFilesInput.files;
         const bankAccountNumber = addBankAccountNumberInput.value.trim();
         const bankName = addBankNameInput.value.trim();
         const hireDate = addHireDateInput.value;
         const terminationDate = addTerminationDateInput.value;
-        const employeeStatus = addEmployeeStatusSelect.value; // Get the raw value from select
+        const employeeStatus = addEmployeeStatusSelect.value;
         const departmentId = addDepartmentIdSelect.value;
         const positionId = addPositionIdSelect.value;
 
-        // Basic validation for required fields
+        // Required validation
         if (!employeeIdNumber || !firstName || !lastName || !dateOfBirth || !address || !hireDate || !employeeStatus || !departmentId || !positionId) {
             showMessage(addEmployeeMessage, 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', true);
             return;
         }
-        // ID Card Number validation only if provided and not null/empty
         if (idCardNumber && (idCardNumber.length !== 13 || !/^\d{13}$/.test(idCardNumber))) {
             showMessage(addEmployeeMessage, 'เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก (ถ้ามี)', true);
+            return;
+        }
+        // Quick client-side check for phone pattern (matches input pattern)
+        if (phoneNumber && !/^\+?[0-9\- ]{7,20}$/.test(phoneNumber)) {
+            showMessage(addEmployeeMessage, 'รูปแบบหมายเลขโทรศัพท์ไม่ถูกต้อง', true);
             return;
         }
 
@@ -541,13 +507,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 date_of_birth: dateOfBirth,
                 address: address,
                 id_card_number: idCardNumber || null,
-                profile_picture_path: null, // Will be updated later
-                application_documents_paths: null, // Will be updated later
+                email: email || null,               // ✅ NEW
+                phone_number: phoneNumber || null,  // ✅ NEW
+                profile_picture_path: null,
+                application_documents_paths: null,
                 bank_account_number: bankAccountNumber || null,
                 bank_name: bankName || null,
                 hire_date: hireDate,
                 termination_date: terminationDate || null,
-                employee_status: employeeStatus, // Send the correct String Value
+                employee_status: employeeStatus,
                 department_id: parseInt(departmentId),
                 position_id: parseInt(positionId)
             };
@@ -558,14 +526,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(tempEmployeeData),
             });
 
-            if (!createResponse.ok) {
-                const errorMsg = await formatApiErrorDetail(createResponse);
-                console.error('API Error (add employee):', errorMsg);
-                throw new Error(errorMsg); // Throw detailed error
-            }
+            if (!createResponse.ok) throw new Error(await formatApiErrorDetail(createResponse));
             const newEmployee = await createResponse.json();
             const newEmployeeId = newEmployee.id;
-            
+
             let uploadedProfilePicturePath = null;
             let uploadedDocumentPaths = [];
 
@@ -576,8 +540,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 uploadedDocumentPaths = await uploadMultipleFiles(newEmployeeId, applicationDocumentsFiles);
             }
 
-            // Now update the employee with the paths
-            let updateData = {
+            // Update with uploaded paths
+            const updateData = {
                 profile_picture_path: uploadedProfilePicturePath,
                 application_documents_paths: uploadedDocumentPaths.length > 0 ? JSON.stringify(uploadedDocumentPaths) : null,
             };
@@ -587,54 +551,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData),
             });
-
-            if (!updateResponse.ok) {
-                const errorMsg = await formatApiErrorDetail(updateResponse);
-                throw new Error(errorMsg);
-            }
+            if (!updateResponse.ok) throw new Error(await formatApiErrorDetail(updateResponse));
 
             showMessage(addEmployeeMessage, `เพิ่มพนักงาน "${newEmployee.first_name} ${newEmployee.last_name}" (ID: ${newEmployeeId}) พร้อมไฟล์เรียบร้อยแล้ว`);
-            addEmployeeForm.reset(); // Clear form
-            addProfilePicturePreview.style.display = 'none'; // Clear preview
+            addEmployeeForm.reset();
+            addProfilePicturePreview.style.display = 'none';
             addProfilePicturePreview.src = '#';
-            addApplicationDocumentsPreview.innerHTML = ''; // Clear preview
-            fetchEmployees(); // Load new data
+            addApplicationDocumentsPreview.innerHTML = '';
+            fetchEmployees();
         } catch (error) {
             console.error('Final caught error adding employee with files:', error);
-            // Ensure error.message is always a string that can be displayed
             showMessage(addEmployeeMessage, `เกิดข้อผิดพลาด: ${error.message}`, true);
         }
     });
 
-    // --- Event Listener for Edit Employee Form ---
+    // --- Edit Employee ---
     editEmployeeForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const employeeId = editEmployeeIdInput.value;
-        
+
         const employeeIdNumber = editEmployeeIdNumberInput.value.trim();
         const firstName = editFirstNameInput.value.trim();
         const lastName = editLastNameInput.value.trim();
         const dateOfBirth = editDateOfBirthInput.value;
         const address = editAddressInput.value.trim();
-        const idCardNumber = editIdCardNumberInput.value.trim(); // Optional now
-        const profilePictureFile = editProfilePictureFileInput.files[0]; // Get file object
-        const applicationDocumentsFiles = editApplicationDocumentsFilesInput.files; // Get FileList object
+        const idCardNumber = editIdCardNumberInput.value.trim();
+        const email = (editEmailInput.value || '').trim();               // ✅ NEW
+        const phoneNumber = (editPhoneNumberInput.value || '').trim();   // ✅ NEW
+        const profilePictureFile = editProfilePictureFileInput.files[0];
+        const applicationDocumentsFiles = editApplicationDocumentsFilesInput.files;
         const bankAccountNumber = editBankAccountNumberInput.value.trim();
         const bankName = editBankNameInput.value.trim();
         const hireDate = editHireDateInput.value;
         const terminationDate = editTerminationDateInput.value;
-        const employeeStatus = editEmployeeStatusSelect.value; // Get the correct String Value
+        const employeeStatus = editEmployeeStatusSelect.value;
         const departmentId = editDepartmentIdSelect.value;
         const positionId = editPositionIdSelect.value;
 
-        // Basic validation for required fields
         if (!employeeIdNumber || !firstName || !lastName || !dateOfBirth || !address || !hireDate || !employeeStatus || !departmentId || !positionId) {
             showMessage(editEmployeeMessage, 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', true);
             return;
         }
-        // ID Card Number validation only if provided and not null/empty
         if (idCardNumber && (idCardNumber.length !== 13 || !/^\d{13}$/.test(idCardNumber))) {
             showMessage(editEmployeeMessage, 'เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก (ถ้ามี)', true);
+            return;
+        }
+        if (phoneNumber && !/^\+?[0-9\- ]{7,20}$/.test(phoneNumber)) {
+            showMessage(editEmployeeMessage, 'รูปแบบหมายเลขโทรศัพท์ไม่ถูกต้อง', true);
             return;
         }
 
@@ -644,70 +607,61 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             let uploadedProfilePicturePath = null;
             let uploadedDocumentPaths = [];
-            let updateDocuments = false; // Flag to determine if documents field needs update
+            let updateDocuments = false;
 
-            // Upload profile picture if new one selected
             if (profilePictureFile) {
                 uploadedProfilePicturePath = await uploadFile(employeeId, 'profile_picture', profilePictureFile);
             } else if (clearEditProfilePictureButton.dataset.cleared === 'true') {
-                uploadedProfilePicturePath = null; // Explicitly set to null if cleared
+                uploadedProfilePicturePath = null;
             } else {
-                // If no new file and not cleared, retain existing path from preview
-                uploadedProfilePicturePath = editProfilePicturePreview.src !== '#' && editProfilePicturePreview.style.display !== 'none'
-                                           ? editProfilePicturePreview.src : null;
+                uploadedProfilePicturePath = (editProfilePicturePreview.src !== '#' && editProfilePicturePreview.style.display !== 'none')
+                    ? editProfilePicturePreview.src
+                    : null;
             }
 
-            // Upload documents if new ones selected
             if (applicationDocumentsFiles.length > 0) {
                 uploadedDocumentPaths = await uploadMultipleFiles(employeeId, applicationDocumentsFiles);
                 updateDocuments = true;
             } else if (clearEditApplicationDocumentsButton.dataset.cleared === 'true') {
-                uploadedDocumentPaths = null; // Explicitly set to null if cleared
+                uploadedDocumentPaths = null;
                 updateDocuments = true;
             } else {
-                // No new files and not cleared, so we keep the existing documents path as is from DB
-                updateDocuments = false; // Don't explicitly update if no change in UI
+                updateDocuments = false;
             }
-            
+
             let updateData = {
                 employee_id_number: employeeIdNumber,
                 first_name: firstName,
                 last_name: lastName,
                 date_of_birth: dateOfBirth,
                 address: address,
-                id_card_number: idCardNumber || null, // Optional now
+                id_card_number: idCardNumber || null,
+                email: email || null,               // ✅ NEW
+                phone_number: phoneNumber || null,  // ✅ NEW
                 bank_account_number: bankAccountNumber || null,
                 bank_name: bankName || null,
                 hire_date: hireDate,
                 termination_date: terminationDate || null,
-                employee_status: employeeStatus, // Send the correct String Value
+                employee_status: employeeStatus,
                 department_id: parseInt(departmentId),
-                position_id: parseInt(positionId)
+                position_id: parseInt(positionId),
+                profile_picture_path: uploadedProfilePicturePath
             };
 
-            // Only update profile_picture_path if a new file was uploaded or it was explicitly cleared
-            // or if it was present and not changed (to ensure it's still sent)
-            updateData.profile_picture_path = uploadedProfilePicturePath;
-
-
-            // For documents: if new files uploaded or cleared, use the new value.
-            // Otherwise, retain the *original* value from the database.
             if (updateDocuments) {
-                updateData.application_documents_paths = uploadedDocumentPaths && uploadedDocumentPaths.length > 0
-                                                      ? JSON.stringify(uploadedDocumentPaths)
-                                                      : null;
+                updateData.application_documents_paths = (uploadedDocumentPaths && uploadedDocumentPaths.length > 0)
+                    ? JSON.stringify(uploadedDocumentPaths)
+                    : null;
             } else {
-                // If not updated via file input, retrieve current from DB to ensure it's not overwritten
                 const originalEmployeeResponse = await fetch(`${API_BASE_URL}/employees/${employeeId}`);
                 if (!originalEmployeeResponse.ok) {
-                     const errorMsg = await formatApiErrorDetail(originalEmployeeResponse);
-                     throw new Error(`เกิดข้อผิดพลาดในการดึงข้อมูลพนักงานเดิมสำหรับเอกสาร: ${errorMsg}`);
+                    throw new Error(`เกิดข้อผิดพลาดในการดึงข้อมูลพนักงานเดิมสำหรับเอกสาร: ${await formatApiErrorDetail(originalEmployeeResponse)}`);
                 }
                 const originalEmployee = await originalEmployeeResponse.json();
                 updateData.application_documents_paths = originalEmployee.application_documents_paths;
             }
-            
-            // Reset the cleared flag
+
+            // reset flags
             clearEditProfilePictureButton.dataset.cleared = 'false';
             clearEditApplicationDocumentsButton.dataset.cleared = 'false';
 
@@ -717,26 +671,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(updateData),
             });
 
-            if (!response.ok) {
-                const errorMsg = await formatApiErrorDetail(response);
-                throw new Error(errorMsg);
-            }
+            if (!response.ok) throw new Error(await formatApiErrorDetail(response));
 
             const updatedEmployee = await response.json();
             showMessage(employeesMessage, `อัปเดตพนักงาน "${updatedEmployee.first_name} ${updatedEmployee.last_name}" (ID: ${updatedEmployee.id}) เรียบร้อยแล้ว`);
-            editEmployeeModal.style.display = 'none'; // Hide Modal
-            fetchEmployees(); // Load new data
+            editEmployeeModal.style.display = 'none';
+            fetchEmployees();
         } catch (error) {
             console.error('Final caught error updating employee with files:', error);
             showMessage(editEmployeeMessage, `เกิดข้อผิดพลาด: ${error.message}`, true);
         }
     });
 
-    // --- Event Listener for closing Edit Modal ---
+    // --- Close Edit Modal ---
     closeEditModalButton.addEventListener('click', () => {
         editEmployeeModal.style.display = 'none';
         editEmployeeMessage.textContent = '';
-        // Reset clear flags
         clearEditProfilePictureButton.dataset.cleared = 'false';
         clearEditApplicationDocumentsButton.dataset.cleared = 'false';
     });

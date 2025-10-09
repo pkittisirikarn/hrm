@@ -1,5 +1,8 @@
 # modules/time_tracking/models.py
-from sqlalchemy import Column, Integer, String, Date, DateTime, Time, Boolean, ForeignKey, Text, Enum, Float
+from sqlalchemy import (
+    Column, Integer, String, Date, DateTime, Time, Boolean,
+    ForeignKey, Text, Enum, Float, UniqueConstraint
+)
 from sqlalchemy.orm import relationship
 from database.base import Base
 import datetime
@@ -25,15 +28,58 @@ class DayOfWeek(enum.Enum):
     SATURDAY = "Saturday"
     SUNDAY = "Sunday"
 
+# ---------------- Leave Balance ----------------
+class LeaveBalance(Base):
+    __tablename__ = "leave_balances"
+    id = Column(Integer, primary_key=True, index=True)
+
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False, index=True)
+    leave_type_id = Column(Integer, ForeignKey("leave_types.id"), nullable=False, index=True)
+    year = Column(Integer, nullable=False, index=True)
+
+    # ใช้ชื่อคอลัมน์ให้ตรงกับตารางจริง
+    opening_quota = Column(Float, default=0.0)  # โควต้าต้นปี/ยกมา
+    accrued       = Column(Float, default=0.0)  # เติมระหว่างปี
+    used          = Column(Float, default=0.0)  # ใช้ไปแล้ว
+    adjusted      = Column(Float, default=0.0)  # ปรับมือ (+/-)
+    carry_in      = Column(Float, default=0.0)  # โอนจากปีก่อน (ถ้าใช้)
+    updated_at    = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    @property
+    def available(self) -> float:
+        # คำนวณฝั่งแอป (ไม่พึ่ง virtual column)
+        return float((self.opening_quota or 0)
+                     + (self.accrued or 0)
+                     + (self.carry_in or 0)
+                     + (self.adjusted or 0)
+                     - (self.used or 0))
+
+    employee = relationship("Employee", backref="leave_balances")
+    leave_type = relationship("LeaveType", backref="leave_balances")
+
+    __table_args__ = (
+        UniqueConstraint("employee_id", "leave_type_id", "year", name="uq_leave_balance_emp_type_year"),
+    )
+
+# ---------------- Leave Type ----------------.
 class LeaveType(Base):
     __tablename__ = "leave_types"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
     description = Column(Text, nullable=True)
+    # quota เดิม
     max_days_per_year = Column(Integer, default=0)
+    annual_quota = Column(Float, default=0.0)
+    affects_balance = Column(Boolean, default=True)
     is_paid_leave = Column(Boolean, default=True)
+
+    # ✅ ใหม่: ตั้งค่าผ่าน UI
+    accrue_per_year = Column(Float, default=0.0)  # เพิ่มสิทธิ์ต่อปี
+    max_quota = Column(Float, default=0.0)        # เพดานสูงสุด
+
     leave_requests = relationship("LeaveRequest", back_populates="leave_type")
 
+# ---------------- Time Entry ----------------
 class TimeEntry(Base):
     __tablename__ = "time_entries"
     id = Column(Integer, primary_key=True, index=True)
@@ -49,6 +95,7 @@ class TimeEntry(Base):
 
     employee = relationship("Employee", back_populates="time_entries")
 
+# ---------------- Leave Request ----------------
 class LeaveRequest(Base):
     __tablename__ = "leave_requests"
     id = Column(Integer, primary_key=True, index=True)
@@ -64,12 +111,13 @@ class LeaveRequest(Base):
     employee = relationship("Employee", back_populates="leave_requests")
     leave_type = relationship("LeaveType", back_populates="leave_requests")
 
+# ---------------- Working Schedule ----------------
 class WorkingSchedule(Base):
     __tablename__ = "working_schedules"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     employee_id = Column(Integer, ForeignKey("employees.id"), nullable=True)
-    
+
     name = Column(String, index=True, nullable=False)
     day_of_week = Column(Enum(DayOfWeek), nullable=False)
     is_working_day = Column(Boolean, default=True)
@@ -79,15 +127,14 @@ class WorkingSchedule(Base):
     break_end_time = Column(Time, nullable=True)
     is_active = Column(Boolean, default=True)
     is_default = Column(Boolean, default=False)
-    
-    # ====== คอลัมน์ใหม่สำหรับตั้งค่าเกณฑ์จากฐานข้อมูล ======
-    late_grace_min         = Column(Integer, nullable=True)  # มาสายเกิน X นาทีถึงนับ (เช่น 5)
-    early_leave_grace_min  = Column(Integer, nullable=True)  # ออกก่อนเกิน X นาทีถึงนับ
-    absence_after_min      = Column(Integer, nullable=True)  # ทำงานจริงต่ำกว่า X นาที = "ขาด"
-    standard_daily_minutes = Column(Integer, nullable=True)  # เวลามาตรฐาน/วัน (นาที) เช่น 480
-    # ถ้าต้องการ override เวลาพักให้เป็นค่าคงที่ ใช้คอลัมน์นี้; ถ้า NULL จะคำนวณจาก break_start_time/end_time
+
+    late_grace_min         = Column(Integer, nullable=True)
+    early_leave_grace_min  = Column(Integer, nullable=True)
+    absence_after_min      = Column(Integer, nullable=True)
+    standard_daily_minutes = Column(Integer, nullable=True)
     break_minutes_override = Column(Integer, nullable=True)
 
+# ---------------- Holiday ----------------
 class Holiday(Base):
     __tablename__ = "holidays"
     id = Column(Integer, primary_key=True, index=True)
@@ -96,6 +143,7 @@ class Holiday(Base):
     is_recurring = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
 
+# ---------------- OT ----------------
 class OvertimeType(Base):
     __tablename__ = "ot_types"
     id = Column(Integer, primary_key=True, index=True)
@@ -121,35 +169,21 @@ class OvertimeRequest(Base):
     employee = relationship("Employee", back_populates="ot_requests")
     ot_type = relationship("OvertimeType", back_populates="ot_requests")
 
+# ---------------- Attendance ----------------
 class AttendanceStatus(str, enum.Enum):
-    PRESENT = "PRESENT"   # มา/ไม่สาย
-    LATE    = "LATE"      # มาสาย
-    LEAVE   = "LEAVE"     # ลา
-    ABSENCE = "ABSENCE"   # ขาดงาน
-
+    PRESENT = "PRESENT"
+    LATE    = "LATE"
+    LEAVE   = "LEAVE"
+    ABSENCE = "ABSENCE"
 
 class AttendanceDaily(Base):
     __tablename__ = "attendance_daily"
 
     id = Column(Integer, primary_key=True, index=True)
-
-    # แนะนำให้มี FK ชี้ไปตาราง employees (จะช่วยเวลาทำ join/report ให้ชัดเจน)
     employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False, index=True)
-
-    # วันที่ของรายการสรุป (1 แถว/พนักงาน/วัน)
     day = Column(Date, nullable=False, index=True)
-
-    # สถานะรายวัน ใช้ Enum ให้สอดคล้องกับคลาส AttendanceStatus
     status_code = Column(Enum(AttendanceStatus), nullable=False, default=AttendanceStatus.PRESENT)
-
-    # นาทีทำงานจริงของวันนั้น (หลังหักพักแล้ว ถ้าใช้)
     work_minutes = Column(Integer, nullable=False, default=0)
-
-    # นาทีกะ “มาสาย” ของวันนั้น (หัก grace แล้ว)
     late_minutes = Column(Integer, nullable=False, default=0)
-
-    # นาทีกะ “ออกก่อน” ของวันนั้น (หัก grace แล้ว)
     early_leave_minutes = Column(Integer, nullable=False, default=0)
-
-    # ถ้าเป็นวันลาที่ “จ่ายเงิน” ให้ True (เช่น ลาป่วยมีใบรับรอง/ลากิจตามนโยบาย)
     is_paid_leave = Column(Boolean, nullable=False, default=True)

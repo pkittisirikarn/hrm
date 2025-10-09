@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}จองห้องประชุม{% endblock %}
+{% block content %}
+<div class="bg-white rounded-lg shadow p-6">
+  <h2 class="text-2xl font-bold mb-4">การจองห้องประชุม</h2>
+
+  <!-- ฟอร์ม -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <!-- ซ้าย -->
+    <div class="space-y-4">
+      <select id="roomSelect" class="border rounded px-3 py-2 w-full">
+        <option value="">-- เลือกห้อง --</option>
+      </select>
+
+      <input id="requesterEmailInput" type="email"
+             class="border rounded px-3 py-2 w-full"
+             placeholder="อีเมลผู้จอง *" />
+
+      <input id="startInput" type="datetime-local"
+             class="border rounded px-3 py-2 w-full" />
+
+      <textarea id="notesInput" rows="3"
+                class="border rounded px-3 py-2 w-full"
+                placeholder="บันทึกเพิ่มเติม"></textarea>
+    </div>
+
+    <!-- ขวา -->
+    <div class="space-y-4">
+      <input id="subjectInput" class="border rounded px-3 py-2 w-full"
+             placeholder="หัวข้อการประชุม *" />
+
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">ผู้เข้าร่วม (เลือกหลายคน)</label>
+        <select id="attendeesSelect" multiple size="10"
+                class="border rounded px-3 py-2 w-full"></select>
+        <p class="text-xs text-gray-500 mt-1">กด Ctrl/Cmd เพื่อเลือกหลายคน</p>
+      </div>
+
+      <input id="endInput" type="datetime-local"
+             class="border rounded px-3 py-2 w-full" />
+    </div>
+  </div>
+
+  <button id="btnBook"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded">
+    จอง
+  </button>
+
+  <!-- ตาราง -->
+  <div class="mt-6 overflow-x-auto">
+    <table class="w-full table-auto border">
+      <thead>
+        <tr class="bg-gray-50">
+          <th class="px-3 py-2 border">ID</th>
+          <th class="px-3 py-2 border">ห้อง</th>
+          <th class="px-3 py-2 border">หัวข้อ</th>
+          <th class="px-3 py-2 border">เวลา</th>
+          <th class="px-3 py-2 border">ผู้เข้าร่วม</th>
+          <th class="px-3 py-2 border">สถานะ</th>
+          <th class="px-3 py-2 border">การจัดการ</th>
+        </tr>
+      </thead>
+      <tbody id="bookingsTableBody"></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/meeting/bookings.js"></script>
+{% endblock %}

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 
 from modules.data_management import models  # ใช้ Enums จาก models.EmployeeStatus
 
@@ -64,6 +64,12 @@ class EmployeeBase(BaseModel):
     application_documents_paths: Optional[str] = Field(None, description="Path เอกสารสมัครงาน (JSON string)")
     bank_account_number: Optional[str] = Field(None, description="เลขบัญชีธนาคาร")
     bank_name: Optional[str] = Field(None, description="ชื่อธนาคาร")
+    email: Optional[EmailStr] = Field(None, description="อีเมลองค์กร/อีเมลที่ติดต่อได้")
+    phone_number: Optional[str] = Field(
+        None,
+        description="หมายเลขโทรศัพท์ (รองรับ +, -, เว้นวรรค)",
+        pattern=r'^\+?[0-9\- ]{7,20}$'
+    )
     hire_date: date = Field(..., description="วันที่เริ่มทำงาน (YYYY-MM-DD)")
     termination_date: Optional[date] = Field(None, description="วันที่สิ้นสุดการทำงาน (YYYY-MM-DD)")
     employee_status: models.EmployeeStatus = Field(models.EmployeeStatus.ACTIVE, description="สถานะพนักงาน")
@@ -84,6 +90,12 @@ class EmployeeUpdate(BaseModel):
     application_documents_paths: Optional[str] = Field(None, description="Path เอกสารสมัครงาน (JSON string)")
     bank_account_number: Optional[str] = Field(None, description="เลขบัญชีธนาคาร")
     bank_name: Optional[str] = Field(None, description="ชื่อธนาคาร")
+    email: Optional[EmailStr] = Field(None, description="อีเมลองค์กร/อีเมลที่ติดต่อได้")
+    phone_number: Optional[str] = Field(
+        None,
+        description="หมายเลขโทรศัพท์ (รองรับ +, -, เว้นวรรค)",
+        pattern=r'^\+?[0-9\- ]{7,20}$'
+    )
     hire_date: Optional[date] = Field(None, description="วันที่เริ่มทำงาน (YYYY-MM-DD)")
     termination_date: Optional[date] = Field(None, description="วันที่สิ้นสุดการทำงาน (YYYY-MM-DD)")
     employee_status: Optional[models.EmployeeStatus] = Field(None, description="สถานะพนักงาน")

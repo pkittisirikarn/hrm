@@ -36,6 +36,8 @@ class Employee(Base):
     application_documents_paths = Column(Text, nullable=True)
     bank_account_number = Column(String, nullable=True)
     bank_name = Column(String, nullable=True)
+    email = Column(String, unique=True, index=True, nullable=True)
+    phone_number = Column(String, unique=True, index=True, nullable=True)
     hire_date = Column(Date, nullable=False)
     termination_date = Column(Date, nullable=True)
     employee_status = Column(Enum(EmployeeStatus), default=EmployeeStatus.ACTIVE, nullable=False)

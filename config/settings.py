@@ -28,5 +28,27 @@ class Settings(BaseSettings):
     USE_CREDENTIALS: bool = os.getenv("USE_CREDENTIALS", "True").lower() == "true"
     VALIDATE_CERTS: bool = os.getenv("VALIDATE_CERTS", "True").lower() == "true"
 
-
 settings = Settings()
+
+class EmailSettings(BaseSettings):
+    # เปิด/ปิดการส่งเมลจริง
+    EMAIL_ENABLED: bool = True
+
+    # smtp | console
+    EMAIL_BACKEND: str = "smtp"
+
+    # Tencent Exmail:
+    # - SSL:   host=smtp.exmail.qq.com, port=465, EMAIL_USE_SSL=true, EMAIL_USE_TLS=false
+    # - STARTTLS: host=smtp.exmail.qq.com, port=587, EMAIL_USE_TLS=true, EMAIL_USE_SSL=false
+    EMAIL_HOST: str = "smtp.exmail.qq.com"
+    EMAIL_PORT: int = 465
+
+    EMAIL_USERNAME: str = "pongsakorn.hr@zkteco.com"   # อีเมลเต็ม เช่น hr@yourcompany.com
+    EMAIL_PASSWORD: str = "Keng_1995"   # รหัสผ่านหรือ授权码(หากเปิดใช้งาน)
+    EMAIL_FROM: str = "pongsakorn.hr@zkteco.com"       # ควรตรงกับ EMAIL_USERNAME สำหรับ Exmail
+    EMAIL_FROM_NAME: str = "HRM System"
+
+    EMAIL_USE_TLS: bool = False
+    EMAIL_USE_SSL: bool = True  # Exmail แนะนำ 465/SSL
+
+email_settings = EmailSettings()
