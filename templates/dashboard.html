@@ -1,27 +1,24 @@
 {% extends "base.html" %}
-
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="bg-white rounded-lg shadow-md p-6">
-    <h2 class="text-2xl font-bold text-gray-800 mb-6">ภาพรวมระบบ (Dashboard)</h2>
-    <p class="text-gray-700">ยินดีต้อนรับสู่ Dashboard ของระบบ HRM ของคุณ!</p>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-        <div class="bg-blue-100 p-4 rounded-lg shadow-sm">
-            <h3 class="text-lg font-semibold text-blue-800">ข้อมูลพนักงาน</h3>
-            <p class="text-blue-700 mt-2">จำนวนพนักงานทั้งหมด: 0</p>
-            <p class="text-blue-700">พนักงานใหม่เดือนนี้: 0</p>
-        </div>
-        <div class="bg-green-100 p-4 rounded-lg shadow-sm">
-            <h3 class="text-lg font-semibold text-green-800">บันทึกเวลา</h3>
-            <p class="text-green-700 mt-2">บันทึกเวลาที่รอดำเนินการ: 0</p>
-            <p class="text-green-700">การเข้างานตรงเวลาวันนี้: 0%</p>
-        </div>
-        <div class="bg-yellow-100 p-4 rounded-lg shadow-sm">
-            <h3 class="text-lg font-semibold text-yellow-800">การลา</h3>
-            <p class="text-yellow-700 mt-2">คำขอลาที่รอดำเนินการ: 0</p>
-            <p class="text-yellow-700">พนักงานที่ลากิจวันนี้: 0</p>
-        </div>
-    </div>
+<div class="bg-white rounded-lg shadow p-6 space-y-4">
+  <h2 class="text-2xl font-bold">Dashboard</h2>
+  <p class="text-gray-600">ยินดีต้อนรับเข้าสู่ HRM System</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <a href="/recruitment/dashboard" class="block p-4 rounded-lg border hover:bg-gray-50">
+      <div class="font-semibold">Recruitment</div>
+      <div class="text-sm text-gray-500">ดูภาพรวมผู้สมัคร</div>
+    </a>
+    <a href="/meeting/rooms/dashboard" class="block p-4 rounded-lg border hover:bg-gray-50">
+      <div class="font-semibold">Meeting</div>
+      <div class="text-sm text-gray-500">สรุปการใช้ห้องประชุม</div>
+    </a>
+    <a href="/data-management/backup" class="block p-4 rounded-lg border hover:bg-gray-50">
+      <div class="font-semibold">สำรอง/กู้คืน</div>
+      <div class="text-sm text-gray-500">จัดการฐานข้อมูล</div>
+    </a>
+  </div>
 </div>
 {% endblock %}

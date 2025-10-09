@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}การจัดการสิทธิ์{% endblock %}
+{% block content %}
+<div class="bg-white rounded-lg shadow p-6 space-y-4">
+  <h2 class="text-2xl font-bold">การจัดการสิทธิ์</h2>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <label class="block">
+      <div class="text-sm text-gray-600">พนักงาน</div>
+      <select id="emp" class="w-full border rounded-lg px-3 py-2"></select>
+    </label>
+    <div class="md:col-span-2 text-sm text-gray-500 self-end">
+      ติ๊กโมดูลที่ให้สิทธิ์
+      <span class="text-gray-400">(PERSONAL_PROFILE ให้เห็นของตนเองเสมอสำหรับ user)</span>
+    </div>
+  </div>
+
+  <div id="perm-list" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
+
+  <div class="flex gap-3">
+    <button id="save" class="px-4 py-2 rounded-lg bg-blue-600 text-white">บันทึก</button>
+  </div>
+</div>
+
+<!-- ฝังค่า modules แบบ JSON ปลอดภัย มี fallback เป็น [] -->
+<script id="mods_json" type="application/json">{{ modules | default([]) | tojson }}</script>
+
+<script>
+(async function(){
+  const empSel = document.getElementById('emp');
+  const permList = document.getElementById('perm-list');
+  const mods = JSON.parse(document.getElementById('mods_json').textContent || '[]');
+
+  // โหลดรายชื่อพนักงาน
+  const resEmp = await fetch('/api/v1/security/employees');
+  if (!resEmp.ok) { alert('โหลดรายชื่อพนักงานไม่สำเร็จ'); return; }
+  const emps = await resEmp.json();
+
+  if (!emps.length) {
+    empSel.innerHTML = '<option value="">-- ไม่มีพนักงาน --</option>';
+    permList.innerHTML = '';
+    return;
+  }
+
+  empSel.innerHTML = emps.map(e => `<option value="${e.id}">${e.name} (${e.role||'user'})</option>`).join('');
+
+  function render(perms){
+    permList.innerHTML = mods.map(m=>{
+      const p = perms.find(x=>x.module===m) || {can_view: m==='personal_profile', can_edit:false};
+      return `
+        <label class="flex items-center gap-3 border rounded-lg p-2">
+          <div class="w-40 font-medium break-words">${m}</div>
+          <div class="flex items-center gap-2">
+            <input type="checkbox" data-k="view" data-m="${m}" ${p.can_view ? 'checked' : ''}/> ดู
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="checkbox" data-k="edit" data-m="${m}" ${p.can_edit ? 'checked' : ''}/> แก้ไข
+          </div>
+        </label>
+      `;
+    }).join('');
+  }
+
+  async function loadPerms(){
+    const id = empSel.value;
+    if (!id) { permList.innerHTML=''; return; }
+    const res = await fetch('/api/v1/security/permissions?employee_id='+id);
+    if (!res.ok) { permList.innerHTML = '<div class="text-red-600">โหลดสิทธิ์ไม่สำเร็จ</div>'; return; }
+    const perms = await res.json();
+    render(perms);
+  }
+
+  empSel.addEventListener('change', loadPerms);
+  await loadPerms();
+
+  document.getElementById('save').addEventListener('click', async ()=>{
+    const id = empSel.value;
+    if (!id) return;
+    const checks = [...permList.querySelectorAll('input[type=checkbox]')];
+    const view = checks.filter(c=>c.dataset.k==='view' && c.checked).map(c=>c.dataset.m);
+    const edit = checks.filter(c=>c.dataset.k==='edit' && c.checked).map(c=>c.dataset.m);
+    const fd = new FormData();
+    fd.append('employee_id', id);
+    fd.append('modules_view', view.join(','));
+    fd.append('modules_edit', edit.join(','));
+    const r = await fetch('/api/v1/security/permissions/update', {method:'POST', body: fd});
+    alert(r.ok ? 'บันทึกแล้ว' : 'ไม่สำเร็จ');
+  });
+})();
+</script>
+{% endblock %}

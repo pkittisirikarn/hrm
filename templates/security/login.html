@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}เข้าสู่ระบบ{% endblock %}
+{% block content %}
+<div class="bg-white rounded-lg shadow p-6 w-full max-w-md">
+  <h2 class="text-2xl font-bold mb-4">เข้าสู่ระบบ</h2>
+  <form id="f-login" class="space-y-3">
+    <label class="block">
+      <div class="text-sm text-gray-600">อีเมล</div>
+      <input name="email" type="email" required class="w-full border rounded-lg px-3 py-2">
+    </label>
+    <label class="block">
+      <div class="text-sm text-gray-600">รหัสผ่าน</div>
+      <input name="password" type="password" required class="w-full border rounded-lg px-3 py-2">
+    </label>
+    <button class="px-4 py-2 rounded-lg bg-blue-600 text-white">เข้าสู่ระบบ</button>
+  </form>
+</div>
+<script>
+document.getElementById('f-login').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const r = await fetch('/auth/login', {method:'POST', body: fd});
+  if (r.ok) location.href = '/'; else alert('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+});
+</script>
+{% endblock %}

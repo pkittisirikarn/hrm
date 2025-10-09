@@ -13,18 +13,26 @@ import os
 # DB
 from database.connection import create_all_tables, SessionLocal, engine
 
-# Routers
+# Routers (โครงหลักของโปรเจ็กต์)
 from modules.data_management import routes as data_management_routes
 from modules.payroll import routes as payroll_routes
 from modules.time_tracking import routes as time_tracking_routes
 from modules.meeting.routes import api as meeting_api, pages as meeting_pages
+from modules.recruitment.routes import api as recruitment_api, pages as recruitment_pages
+
+# Security / Permissions / Backup / Password
+from modules.security.routes import api as security_api, pages as security_pages
+from modules.security.backup_routes import api_backup
+from modules.security.password_routes import api_pw, password_page
 
 # Migrations/seed helpers
 from modules.data_management.migrations import migrate_employees_contact_columns
 from modules.meeting.migrations import migrate_meeting_rooms_columns
 from modules.meeting.migrations import run_startup_migrations
-from modules.meeting.routes import api as meeting_api, pages as meeting_pages
-from modules.recruitment.routes import api as recruitment_api, pages as recruitment_pages
+from types import SimpleNamespace
+from starlette.middleware.sessions import SessionMiddleware
+from modules.security.auth_routes import api as auth_api, pages as auth_pages
+from modules.security.bootstrap import ensure_default_admin
 
 # Windows event loop policy (dev on Windows)
 if sys.platform.startswith("win"):
@@ -39,47 +47,75 @@ app = FastAPI(
     version="1.0.0",
 )
 
+@app.middleware("http")
+async def _dev_admin(request, call_next):
+    # เปิดด้วย env var: HRM_DEV_ADMIN=1
+    if os.environ.get("HRM_DEV_ADMIN") == "1":
+        # พอสำหรับเช็คสิทธิ์หน้าเพจ (role=admin)
+        if not hasattr(request.state, "current_user"):
+            request.state.current_user = SimpleNamespace(id=1, role="admin")
+    return await call_next(request)
+
 # CORS
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # TODO: restrict in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    SessionMiddleware,
+    secret_key=os.environ.get("HRM_SECRET_KEY", "dev-secret"),
+    session_cookie="hrm_session",
 )
 
 # Static & templates
+os.makedirs("static/uploads/rooms", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 app.state.templates = Jinja2Templates(directory="templates")
 
-# --- Static (เผื่อรูปห้องประชุม) ---
-os.makedirs("static/uploads/rooms", exist_ok=True)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# ---------- Include Routers (API/Pages) ----------
 
-app.include_router(meeting_api)   # /api/v1/meeting/... (rooms, bookings, dashboard summary)
-app.include_router(meeting_pages) # /meeting/rooms , /meeting/bookings , /meeting/rooms/dashboard
+# Meeting
+app.include_router(meeting_api)    # /api/v1/meeting/...
+app.include_router(meeting_pages)  # /meeting/...
 
-# Meeting (API + Pages)
+# Recruitment
 app.include_router(recruitment_api)
 app.include_router(recruitment_pages)
 
+# Security
+app.include_router(security_api)   # /api/v1/security/...
+app.include_router(security_pages) # /security/permissions , /data-management/backup
+app.include_router(api_backup)     # /api/v1/security/db/...
+app.include_router(api_pw)         # /api/v1/security/password/change
+
+# Data management + Payroll + Time-tracking (ใช้ routers ของโมดูล)
+app.include_router(data_management_routes.api_router, prefix="/api/v1/data-management", tags=["Data Management API"])
+app.include_router(payroll_routes.api_router,          prefix="/api/v1/payroll",         tags=["Payroll API"])
+app.include_router(time_tracking_routes.api_router)  # api_router มี prefix ภายในอยู่แล้ว
+
+# UI routers (prefix ที่นี่ตามเมนู)
+app.include_router(data_management_routes.ui_router, prefix="/data-management", include_in_schema=False)
+app.include_router(payroll_routes.ui_router,         prefix="/payroll",         include_in_schema=False)
+app.include_router(time_tracking_routes.ui_router,   prefix="/time-tracking",   include_in_schema=False)
+
+app.include_router(auth_api)    # /auth/login , /auth/logout
+app.include_router(auth_pages)  # /auth/login (page)
+
+# ---------- Startup tasks / lightweight migrations ----------
 @app.on_event("startup")
 def on_startup():
-    
-    Base.metadata.create_all(bind=engine)   # ของเดิมคุณมีอยู่แล้ว
+    Base.metadata.create_all(bind=engine)
     run_startup_migrations(engine)
     
+    ensure_default_admin()
+
     print("Creating all database tables...")
     create_all_tables()
     print("Database tables created successfully.")
-    
+
     try:
         migrate_employees_contact_columns(engine)
         print("✓ Migrated employees: added email/phone_number if missing.")
     except Exception as e:
         print(f"⚠️ Migrate warning (employees contact columns): {e}")
-        
+
     try:
         migrate_meeting_rooms_columns(engine)
         print("✓ Migrated meeting_rooms: ensured notes (and is_active) columns.")
@@ -170,7 +206,7 @@ def on_startup():
 # ---------- UI routes ----------
 @app.get("/", include_in_schema=False)
 async def root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "title": "HRM Home"})
+    return templates.TemplateResponse("dashboard.html", {"request": request, "title": "HRM Home"})
 
 @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
 async def dashboard_page(request: Request):
@@ -180,26 +216,16 @@ async def dashboard_page(request: Request):
 async def redirect_to_payroll_allowance_types():
     return RedirectResponse(url="/payroll/allowance-types", status_code=302)
 
-# ---------- Routers ----------
-# NOTE: อย่าใส่ prefix ซ้ำกับที่ประกาศใน router แล้ว
-# Data management API: (module นี้ประกาศ path ภายในเอง → ใส่ prefix ที่นี่)
-app.include_router(data_management_routes.api_router, prefix="/api/v1/data-management", tags=["Data Management API"])
-# Payroll API:
-app.include_router(payroll_routes.api_router,          prefix="/api/v1/payroll",         tags=["Payroll API"])
-# Time-tracking API: api_router มี prefix แล้ว → ไม่ต้องใส่ prefix ที่นี่ซ้ำ
-app.include_router(time_tracking_routes.api_router)
+@app.get("/security/password")
+def _password_page(request: Request):
+    return password_page(request)
 
-# UI routers (prefix ที่นี่ตามเมนู)
-app.include_router(data_management_routes.ui_router, prefix="/data-management", include_in_schema=False)
-app.include_router(payroll_routes.ui_router,         prefix="/payroll",         include_in_schema=False)
-app.include_router(time_tracking_routes.ui_router,   prefix="/time-tracking",   include_in_schema=False)
-
+# ---------- Entrypoint ----------
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)
 
 def _normalize_meeting_booking_statuses():
     with SessionLocal() as db:
-        # ถ้าฐานข้อมูลเป็น SQLite/MySQL ก็รันได้ตรง ๆ
         db.execute(text("UPDATE meeting_bookings SET status='APPROVED' WHERE status='BOOKED'"))
         db.commit()
 
