@@ -74,38 +74,26 @@ def get_permissions(employee_id: int, db: Session = Depends(get_db)):
 @api.post("/permissions/update")
 def update_permissions(
     employee_id: int = Form(...),
-    modules_view: Optional[str] = Form(""),
-    modules_edit: Optional[str] = Form(""),
+    modules_view: str = Form(""),
+    modules_edit: str = Form(""),
     db: Session = Depends(get_db),
     me=Depends(get_current_employee),
 ):
-    """
-    อัปเดตสิทธิ์ของพนักงานแบบ bulk
-    - modules_view: csv ของ module ที่ให้ดู
-    - modules_edit: csv ของ module ที่ให้แก้ไข
-    หมายเหตุ: PERSONAL_PROFILE จะให้ can_view เสมอ (ฝั่ง handler อื่นต้องบังคับให้ user เห็นได้เฉพาะของตน)
-    """
+    from modules.security.deps import is_admin
     if not is_admin(me):
         raise HTTPException(403, "Admins only")
 
     allow_view = {m for m in (modules_view or "").split(",") if m}
     allow_edit = {m for m in (modules_edit or "").split(",") if m}
 
-    # ลบของเดิมแล้วเขียนใหม่
-    db.query(ModulePermission).filter(
-        ModulePermission.employee_id == employee_id
-    ).delete()
-
+    db.query(ModulePermission).filter(ModulePermission.employee_id == employee_id).delete()
     for m in AppModule:
-        db.add(
-            ModulePermission(
-                employee_id=employee_id,
-                module=m,  # SQLEnum(AppModule) รองรับ enum โดยตรง
-                can_view=(m.value in allow_view) or (m == AppModule.PERSONAL_PROFILE),
-                can_edit=(m.value in allow_edit),
-            )
-        )
-
+        db.add(ModulePermission(
+            employee_id=employee_id,
+            module=m,
+            can_view=(m.value in allow_view) or (m == AppModule.PERSONAL_PROFILE),
+            can_edit=(m.value in allow_edit),
+        ))
     db.commit()
     return {"ok": True}
 

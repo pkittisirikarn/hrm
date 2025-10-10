@@ -1,26 +1,49 @@
 {% extends "base.html" %}
 {% block title %}เข้าสู่ระบบ{% endblock %}
 {% block content %}
-<div class="bg-white rounded-lg shadow p-6 w-full max-w-md">
-  <h2 class="text-2xl font-bold mb-4">เข้าสู่ระบบ</h2>
-  <form id="f-login" class="space-y-3">
+<div class="max-w-md mx-auto bg-white rounded-lg shadow p-6 space-y-4">
+  <h2 class="text-2xl font-bold">เข้าสู่ระบบ</h2>
+
+  <!-- ปิด HTML5 form validation -->
+  <form id="login-form" method="post" action="/auth/login" class="space-y-3" novalidate>
     <label class="block">
       <div class="text-sm text-gray-600">อีเมล</div>
-      <input name="email" type="email" required class="w-full border rounded-lg px-3 py-2">
+      <!-- ใช้ type="text" + inputmode="email" เพื่อไม่ติด validation แต่ยังได้คีย์บอร์ดแบบอีเมลในมือถือ -->
+      <input id="email"
+             name="email"
+             type="text"
+             inputmode="email"
+             autocomplete="username"
+             class="w-full border rounded-lg px-3 py-2"
+             placeholder="admin หรือ admin@hrm.local"
+             required>
     </label>
+
     <label class="block">
       <div class="text-sm text-gray-600">รหัสผ่าน</div>
-      <input name="password" type="password" required class="w-full border rounded-lg px-3 py-2">
+      <input name="password" type="password" autocomplete="current-password"
+             class="w-full border rounded-lg px-3 py-2" placeholder="********" required>
     </label>
-    <button class="px-4 py-2 rounded-lg bg-blue-600 text-white">เข้าสู่ระบบ</button>
+
+    <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 w-full">
+      เข้าสู่ระบบ
+    </button>
   </form>
+
+  <div class="text-xs text-gray-500">
+    ค่าเริ่มต้น: <code>admin@hrm.local</code> / <code>admin</code>
+  </div>
 </div>
+
+<!-- เติมโดเมนอัตโนมัติก่อนส่งฟอร์ม เมื่อผู้ใช้พิมพ์แค่ 'admin' -->
 <script>
-document.getElementById('f-login').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  const r = await fetch('/auth/login', {method:'POST', body: fd});
-  if (r.ok) location.href = '/'; else alert('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
-});
+  (function () {
+    const form = document.getElementById('login-form');
+    const email = document.getElementById('email');
+    form.addEventListener('submit', function () {
+      const v = (email.value || '').trim();
+      if (v && !v.includes('@')) email.value = v + '@hrm.local';
+    });
+  })();
 </script>
 {% endblock %}

@@ -1,45 +1,52 @@
 # modules/security/password_routes.py
-from fastapi import APIRouter, Depends, HTTPException, Form, Request
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from starlette.templating import Jinja2Templates
-
+from sqlalchemy import text, inspect
+from sqlalchemy.orm import Session
 from database.connection import get_db
 from modules.security.deps import get_current_employee
 from modules.security.passwords import hash_password, verify_password
 
-# ----- Templates -----
+api_pw = APIRouter(prefix="/api/v1/security", tags=["security"])
+pages = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
-# ----- UI Page (ให้ main.py import ใช้ได้) -----
-def password_page(request: Request):
-    # แสดงหน้าเปลี่ยนรหัสผ่าน (ต้องล็อกอินแล้วถึงจะใช้งานได้ในฝั่ง API)
+@pages.get("/security/password")
+def password_page(request: Request, me=Depends(get_current_employee)):
+    # เปิดหน้าเปลี่ยนรหัสผ่าน (ต้องมี me)
+    if not me:
+        raise HTTPException(401, "Unauthorized")
     return templates.TemplateResponse("security/password.html", {"request": request})
-
-# ----- API -----
-api_pw = APIRouter(prefix="/api/v1/security", tags=["security"])
 
 @api_pw.post("/password/change")
 def change_password(
     old_password: str = Form(""),
     new_password: str = Form(...),
     db: Session = Depends(get_db),
-    me = Depends(get_current_employee),
+    me=Depends(get_current_employee),
 ):
-    if len(new_password) < 8:
-        raise HTTPException(400, "รหัสผ่านอย่างน้อย 8 ตัวอักษร")
+    if not me:
+        raise HTTPException(401, "Unauthorized")
 
-    # ตั้งครั้งแรก (ยังไม่มี hash เดิม)
-    if not getattr(me, "password_hash", None):
-        me.password_hash = hash_password(new_password)
-        db.add(me); db.commit()
-        return {"ok": True, "first_set": True}
+    # ensure column password_hash
+    insp = inspect(db.bind)
+    cols = {c["name"] for c in insp.get_columns("employees")}
+    if "password_hash" not in cols:
+        db.execute(text("ALTER TABLE employees ADD COLUMN password_hash TEXT"))
 
-    # มีรหัสเดิมแล้ว → ต้องตรวจ old_password
-    if not verify_password(old_password, me.password_hash):
+    row = db.execute(
+        text("SELECT password_hash FROM employees WHERE id=:i"),
+        {"i": me.id},
+    ).first()
+    cur_hash = row.password_hash if row else None
+
+    # ถ้ามีรหัสเดิมอยู่ ต้อง verify ให้ผ่านก่อน
+    if cur_hash and not verify_password(old_password, cur_hash):
         raise HTTPException(400, "รหัสผ่านเดิมไม่ถูกต้อง")
 
-    me.password_hash = hash_password(new_password)
-    db.add(me); db.commit()
+    db.execute(
+        text("UPDATE employees SET password_hash=:h WHERE id=:i"),
+        {"h": hash_password(new_password), "i": me.id},
+    )
+    db.commit()
     return {"ok": True}
-
-__all__ = ["api_pw", "password_page"]

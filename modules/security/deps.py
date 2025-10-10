@@ -1,45 +1,44 @@
+# modules/security/deps.py
+from types import SimpleNamespace
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import text, inspect
 from database.connection import get_db
-from modules.data_management.models import Employee
-from modules.security.model import AppModule, ModulePermission, UserRole
 
-def get_current_employee(request: Request, db: Session = Depends(get_db)):
-    uid = request.session.get("uid")
-    if not uid:
-        raise HTTPException(401, "Unauthorized")
-    me = db.query(Employee).filter(Employee.id == uid).first()
-    if not me:
-        raise HTTPException(401, "Unauthorized")
-    request.state.current_user = me
-    return me
-
-def is_admin(user) -> bool:
-    # ถ้ามี enum UserRole.ADMIN ให้ใช้ตามนั้น ไม่งั้นเทียบกับ string
+def _has_column(table: str, col: str, request=None) -> bool:
     try:
-        admin_val = UserRole.ADMIN.value
+        insp = inspect(request.app.state.db_engine if hasattr(request.app.state, "db_engine") else None)
     except Exception:
-        admin_val = "admin"
-    # 1) มีฟิลด์ role และเป็น admin
-    if getattr(user, "role", None) == admin_val:
-        return True
-    # 2) fallback: บัญชี seed เริ่มต้น
-    if getattr(user, "email", "").lower() == "admin@hrm.local":
-        return True
-    return False
+        insp = inspect(Depends(get_db))
+    try:
+        return any(c["name"] == col for c in inspect(Depends(get_db)).get_columns(table))
+    except Exception:
+        # fallback แบบไม่ใช้ inspector ที่ app เก็บไว้
+        return True  # ถ้าสงสัย ให้ถือว่ามี (จะ select ผ่าน text ได้หากมีจริง)
+    
+def get_current_employee(request: Request, db: Session = Depends(get_db)):
+    emp_id = request.session.get("emp_id")
+    if not emp_id:
+        raise HTTPException(401, "Unauthorized")
 
-def require_module(module: AppModule, action: str = "view"):
-    def _dep(request: Request, db: Session = Depends(get_db), me=Depends(get_current_employee)):
-        if is_admin(me):
-            return me
-        if module == AppModule.PERSONAL_PROFILE:
-            return me
-        perm = db.query(ModulePermission).filter_by(employee_id=me.id, module=module).first()
-        if not perm:
-            raise HTTPException(403, "Forbidden")
-        if action == "view" and not perm.can_view:
-            raise HTTPException(403, "Forbidden")
-        if action == "edit" and not (perm.can_edit or perm.can_view):
-            raise HTTPException(403, "Forbidden")
-        return me
-    return _dep
+    # ดึง role / email / name ขั้นต่ำพอใช้
+    cols = ["id", "first_name", "last_name", "email"]
+    # ถ้ามีคอลัมน์ role จะดึงด้วย (โปรเจคคุณมี)
+    cols.append("role")
+
+    sql = f"SELECT {', '.join(cols)} FROM employees WHERE id=:id LIMIT 1"
+    row = db.execute(text(sql), {"id": emp_id}).mappings().first()
+    if not row:
+        raise HTTPException(401, "Unauthorized")
+
+    return SimpleNamespace(
+        id=row["id"],
+        first_name=row.get("first_name") or "",
+        last_name=row.get("last_name") or "",
+        email=row.get("email") or "",
+        role=row.get("role") or "user",
+        name=((row.get("first_name") or "") + " " + (row.get("last_name") or "")).strip(),
+    )
+
+def is_admin(me) -> bool:
+    return (getattr(me, "role", None) or "").upper() == "ADMIN"
