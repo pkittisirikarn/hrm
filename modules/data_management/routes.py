@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from core.templates import templates
+# from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import List
 import os, shutil, datetime
@@ -10,10 +11,11 @@ from database.connection import get_db
 from modules.data_management import schemas, services
 from modules.security.deps import get_current_employee
 from modules.security.model import UserRole
+from modules.security.deps import require_perm
 
 ui_router = APIRouter()
 api_router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+# templates = Jinja2Templates(directory="templates")
 
 # ---------- UI ----------
 @ui_router.get("/", response_class=HTMLResponse)
@@ -28,7 +30,7 @@ async def read_departments_ui(request: Request):
 async def read_positions_ui(request: Request):
     return templates.TemplateResponse("data_management/positions.html", {"request": request})
 
-@ui_router.get("/employees", response_class=HTMLResponse)
+@ui_router.get("/employees", response_class=HTMLResponse, dependencies=[Depends(require_perm("employees.view"))])
 async def read_employees_ui(request: Request):
     return templates.TemplateResponse("data_management/employees.html", {"request": request})
 
@@ -96,7 +98,9 @@ def delete_position_route(position_id: int, db: Session = Depends(get_db)):
     return services.delete_position(db=db, position_id=position_id)
 
 # ---------- API : Employees ----------
-@api_router.post("/employees/", response_model=schemas.EmployeeInDB, status_code=status.HTTP_201_CREATED)
+@api_router.post("/employees/", response_model=schemas.EmployeeInDB,
+                 status_code=status.HTTP_201_CREATED,
+                 dependencies=[Depends(require_perm("employees.edit"))])
 async def create_employee_route(request: Request, db: Session = Depends(get_db)):
     if request.headers.get("content-type", "").startswith("application/json"):
         raw = await request.json()

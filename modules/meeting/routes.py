@@ -17,7 +17,8 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session, joinedload
-from starlette.templating import Jinja2Templates
+from core.templates import templates
+# from starlette.templating import Jinja2Templates
 from modules.meeting import models
 from database.connection import get_db
 
@@ -45,7 +46,7 @@ from modules.meeting.services import (
 
 api = APIRouter(prefix="/api/v1/meeting", tags=["Meeting API"])
 pages = APIRouter()
-templates = Jinja2Templates(directory="templates")
+# templates = Jinja2Templates(directory="templates")
 
 # อัปโหลดรูปห้อง
 UPLOAD_DIR = os.path.join("static", "uploads", "rooms")

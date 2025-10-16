@@ -5,7 +5,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from starlette.templating import Jinja2Templates
+from core.templates import templates
+# from starlette.templating import Jinja2Templates
 
 from database.connection import get_db
 from .models import Candidate, CandidateFile, CandidateStatus, STATUS_THAI
@@ -14,7 +15,7 @@ from .services import save_upload, ALLOWED_IMAGE, ALLOWED_PDF  # ต้องม
 
 api = APIRouter(prefix="/api/v1/recruitment", tags=["recruitment"])
 pages = APIRouter()
-templates = Jinja2Templates(directory="templates")
+# templates = Jinja2Templates(directory="templates")
 
 # ---------- PAGES ----------
 @pages.get("/recruitment/dashboard")

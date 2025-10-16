@@ -8,7 +8,8 @@ import os, json, shutil, csv, io
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from fastapi.responses import HTMLResponse, Response
-from fastapi.templating import Jinja2Templates
+from core.templates import templates
+# from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, desc
 
@@ -26,7 +27,7 @@ router = APIRouter(prefix="/api/v1/payroll", tags=["payroll"])
 
 ui_router = APIRouter()
 api_router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+# templates = Jinja2Templates(directory="templates")
 
 
 # ---------- UI ROUTES ----------

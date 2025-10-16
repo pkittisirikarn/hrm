@@ -1,58 +1,42 @@
-# modules/security/passwords.py
-"""
-Password hashing helpers (PBKDF2-HMAC-SHA256).
-- ถ้ามี werkzeug: ใช้ generate_password_hash / check_password_hash (pbkdf2:sha256)
-- ถ้าไม่มี: ใช้ hashlib.pbkdf2_hmac (pure python) พร้อมฟอร์แมตของเราเอง
-"""
-
+from __future__ import annotations
 from typing import Optional
 
-# ---- ทางเลือกที่ 1: ใช้ werkzeug ถ้ามี ----
+# ใช้ werkzeug เป็นมาตรฐาน (PBKDF2) และรองรับ bcrypt เพื่อความเข้ากันได้ย้อนหลัง
+from werkzeug.security import generate_password_hash, check_password_hash
+
 try:
-    from werkzeug.security import generate_password_hash, check_password_hash  # type: ignore
-
-    def hash_password(password: str) -> str:
-        # ใช้ pbkdf2:sha256 + random salt 16 bytes
-        return generate_password_hash(password or "", method="pbkdf2:sha256", salt_length=16)
-
-    def verify_password(password: str, password_hash: Optional[str]) -> bool:
-        if not password_hash:
-            return False
-        return check_password_hash(password_hash, password or "")
-
-# ---- ทางเลือกที่ 2: fallback เป็น hashlib.pbkdf2_hmac (pure python) ----
+    import bcrypt  # มีอยู่แล้วในโปรเจกต์
 except Exception:
-    import os, hmac, binascii, hashlib
+    bcrypt = None  # เผื่อสภาพแวดล้อมไม่มี (จะไม่ใช้เส้นทาง fallback นี้)
 
-    _ALG = "pbkdf2_sha256"
-    _ITER = 200_000
-    _SALT_BYTES = 16
 
-    def _hex(b: bytes) -> str:
-        return binascii.hexlify(b).decode("ascii")
+def is_bcrypt_hash(h: Optional[str]) -> bool:
+    return isinstance(h, str) and h.startswith(("$2a$", "$2b$", "$2y$"))
 
-    def _unhex(s: str) -> bytes:
-        return binascii.unhexlify(s.encode("ascii"))
 
-    def hash_password(password: str) -> str:
-        salt = os.urandom(_SALT_BYTES)
-        dk = hashlib.pbkdf2_hmac("sha256", (password or "").encode("utf-8"), salt, _ITER)
-        # ฟอร์แมต: pbkdf2_sha256$ITER$salt_hex$dk_hex
-        return f"{_ALG}${_ITER}${_hex(salt)}${_hex(dk)}"
+def hash_password(password: str) -> str:
+    """
+    สร้างแฮชมาตรฐานเดียวกับระบบ (PBKDF2-SHA256 ของ werkzeug)
+    """
+    return generate_password_hash(password or "", method="pbkdf2:sha256", salt_length=16)
 
-    def verify_password(password: str, password_hash: Optional[str]) -> bool:
-        if not password_hash:
-            return False
+
+def verify_password(password: str, password_hash: Optional[str]) -> bool:
+    """
+    ตรวจรหัสผ่าน:
+    - ถ้าเป็น bcrypt (เริ่มด้วย $2a$/$2b$/$2y$) จะตรวจด้วย bcrypt เพื่อรองรับข้อมูลเก่า
+    - มิฉะนั้นตรวจด้วย werkzeug PBKDF2
+    """
+    if not password_hash:
+        return False
+
+    if is_bcrypt_hash(password_hash) and bcrypt is not None:
         try:
-            alg, iter_s, salt_hex, dk_hex = password_hash.split("$", 3)
-            if alg != _ALG:
-                return False
-            iters = int(iter_s)
-            salt = _unhex(salt_hex)
-            expected = _unhex(dk_hex)
-            candidate = hashlib.pbkdf2_hmac(
-                "sha256", (password or "").encode("utf-8"), salt, iters
-            )
-            return hmac.compare_digest(candidate, expected)
+            return bcrypt.checkpw((password or "").encode("utf-8"), password_hash.encode("utf-8"))
         except Exception:
             return False
+
+    try:
+        return check_password_hash(password_hash, password or "")
+    except Exception:
+        return False

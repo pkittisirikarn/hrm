@@ -4,11 +4,15 @@
 <div class="max-w-md mx-auto bg-white rounded-lg shadow p-6 space-y-4">
   <h2 class="text-2xl font-bold">เข้าสู่ระบบ</h2>
 
-  <!-- ปิด HTML5 form validation -->
+  {% if error %}
+    <div class="rounded-md bg-red-50 text-red-700 p-3 text-sm">
+      {{ error }}
+    </div>
+  {% endif %}
+
   <form id="login-form" method="post" action="/auth/login" class="space-y-3" novalidate>
     <label class="block">
       <div class="text-sm text-gray-600">อีเมล</div>
-      <!-- ใช้ type="text" + inputmode="email" เพื่อไม่ติด validation แต่ยังได้คีย์บอร์ดแบบอีเมลในมือถือ -->
       <input id="email"
              name="email"
              type="text"
@@ -16,6 +20,7 @@
              autocomplete="username"
              class="w-full border rounded-lg px-3 py-2"
              placeholder="admin หรือ admin@hrm.local"
+             value="{{ email or '' }}"
              required>
     </label>
 
@@ -35,7 +40,6 @@
   </div>
 </div>
 
-<!-- เติมโดเมนอัตโนมัติก่อนส่งฟอร์ม เมื่อผู้ใช้พิมพ์แค่ 'admin' -->
 <script>
   (function () {
     const form = document.getElementById('login-form');

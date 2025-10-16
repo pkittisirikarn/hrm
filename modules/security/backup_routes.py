@@ -3,7 +3,8 @@ import os, shutil, glob
 from datetime import datetime
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
 from fastapi.responses import FileResponse
-from starlette.templating import Jinja2Templates
+from core.templates import templates
+# from starlette.templating import Jinja2Templates
 from .deps import require_perm, get_current_employee, is_admin
 
 api_backup = APIRouter(prefix="/api/v1/security/db", tags=["Security DB API"])
@@ -15,7 +16,7 @@ os.makedirs(BACKUP_DIR, exist_ok=True)
 
 @pages.get("/security/backup")
 def backup_page(request: Request, _=Depends(require_perm("security.manage"))):
-    templates = Jinja2Templates(directory="templates")
+    # templates = Jinja2Templates(directory="templates")
     return templates.TemplateResponse("security/backup.html", {"request": request})
 
 @api_backup.get("/backups")

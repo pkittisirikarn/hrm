@@ -5,40 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}HRM System{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/static/css/style.css"> {# ตรวจสอบให้แน่ใจว่าไฟล์นี้มีอยู่ #}
+    <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     {% block head_extra %}{% endblock %}
     <style>
-        /* Dropdown styles for navbar */
-        .dropdown {
-            position: relative;
-            display: inline-block;
-        }
-
+        .dropdown { position: relative; display: inline-block; }
         .dropdown-content {
-            display: none;
-            position: absolute;
-            min-width: 160px;
-            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-            z-index: 1;
-            border-radius: 0.375rem; /* rounded-md */
-            overflow: hidden; /* เพื่อให้ dropdown-item มุมมนด้วย */
+            display: none; position: absolute; min-width: 220px;
+            box-shadow: 0 8px 16px rgba(0,0,0,.2); z-index: 50;
+            border-radius: .375rem; overflow: hidden; background: #fff;
         }
-
-        .dropdown-content a {
-            color: black;
-            padding: 12px 16px;
-            text-decoration: none;
-            display: block;
-        }
-
-        .dropdown-content a:hover {
-            background-color: #f1f1f1;
-        }
-
-        .dropdown:hover .dropdown-content {
-            display: block;
-        }
+        .dropdown-content a { color: #111827; padding: 12px 16px; text-decoration: none; display: block; }
+        .dropdown-content a:hover { background-color: #f1f5f9; }
+        .dropdown:hover .dropdown-content { display: block; }
     </style>
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
@@ -47,108 +26,146 @@
         <div class="container mx-auto flex justify-between items-center">
             <a href="/" class="text-white text-2xl font-bold">HRM System</a>
             <div class="flex space-x-4">
-                <!-- <a href="/dashboard" class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300">Dashboard</a> -->
 
-                <!-- Dropdown: จัดการข้อมูล -->
+                {# ---------- จัดการข้อมูล ---------- #}
+                {% set can_dm = has_perm(request.session,'employees.view')
+                                or has_perm(request.session,'employees.edit')
+                                or has_perm(request.session,'departments.manage')
+                                or has_perm(request.session,'positions.manage') %}
+                {% if can_dm %}
                 <div class="dropdown">
-                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300 inline-flex items-center">
+                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition inline-flex items-center">
                         จัดการข้อมูล
                         <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                     </button>
-                    <div class="dropdown-content bg-white">
-                        <a href="/data-management/departments" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">แผนก</a>
-                        <a href="/data-management/positions" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ตำแหน่ง</a>
-                        <a href="/data-management/employees" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">พนักงาน</a>
+                    <div class="dropdown-content">
+                        {% if has_perm(request.session,'departments.manage') %}
+                        <a href="/data-management/departments">แผนก</a>
+                        {% endif %}
+                        {% if has_perm(request.session,'positions.manage') %}
+                        <a href="/data-management/positions">ตำแหน่ง</a>
+                        {% endif %}
+                        {% if has_perm(request.session,'employees.view') or has_perm(request.session,'employees.edit') %}
+                        <a href="/data-management/employees">พนักงาน</a>
+                        {% endif %}
                     </div>
                 </div>
+                {% endif %}
 
-                <!-- Dropdown: การลงเวลา -->
+                {# ---------------- การลงเวลา ---------------- #}
+                {% set can_time = has_perm(request.session,'time.view') or has_perm(request.session,'time.edit')
+                   or has_perm(request.session,'time.leave.request') or has_perm(request.session,'time.ot.request') %}
+                {% if can_time %}
                 <div class="dropdown">
-                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300 inline-flex items-center">
-                        การลงเวลา
-                        <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                    </button>
-                    <div class="dropdown-content bg-white">
-                        <a href="/time-tracking/working-schedules" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ตารางการทำงาน</a>
-                        <a href="/time-tracking/time-entries" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">นำเข้าข้อมูลลงเวลา</a>
-                        <a href="/time-tracking/report" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t">รายงานบันทึกเวลา</a>
-                        <a href="/time-tracking/leave-types" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ประเภทการลา</a> 
-                        <a href="/time-tracking/leave-requests" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">คำขอลา</a>
-                        <a href="/time-tracking/leave-balances" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">จัดการสิทธิการลา</a>
-                        <a href="/time-tracking/ot-types" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t">ประเภท OT</a>
-                        <a href="/time-tracking/ot-requests" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">คำขอ OT</a>                     
-                        <a href="/time-tracking/holidays" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">วันหยุดประจำปี
-                    
-                        </a> 
-                        
-                    </div>
+                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition inline-flex items-center">
+                    การลงเวลา
+                    <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                </button>
+                <div class="dropdown-content">
+                {# ✅ แสดงเฉพาะรายการที่ต้องการให้ USER เห็น #}
+                {% if has_perm(request.session,'time.view') %}
+                    <a href="/time-tracking/report">รายงานบันทึกเวลา</a>
+                {% endif %}
+
+                {% if has_perm(request.session,'time.leave.request') %}
+                    <a href="/time-tracking/leave-requests">คำขอลา</a>
+                {% endif %}
+
+                {% if has_perm(request.session,'time.ot.request') %}
+                    <a href="/time-tracking/ot-requests">คำขอ OT</a>
+                {% endif %}
+
+                {# 🔒 เมนูจัดการอื่นๆ ให้แสดงเฉพาะคนที่มีสิทธิ์แก้ไขเท่านั้น (ADMIN/MANAGER) #}
+                {% if has_perm(request.session,'time.edit') %}
+                    <a href="/time-tracking/working-schedules" class="border-t">ตารางการทำงาน</a>
+                    <a href="/time-tracking/time-entries">นำเข้าข้อมูลลงเวลา</a>
+                    <a href="/time-tracking/leave-types">ประเภทการลา</a>
+                    <a href="/time-tracking/leave-balances">จัดการสิทธิการลา</a>
+                    <a href="/time-tracking/ot-types" class="border-t">ประเภท OT</a>
+                    <a href="/time-tracking/holidays">วันหยุดประจำปี</a>
+                {% endif %}
                 </div>
+                </div>
+                {% endif %}
 
-                <!-- Dropdown: เงินเดือน -->
+
+                {# ---------- เงินเดือน ---------- #}
+                {% set can_payroll = has_perm(request.session,'payroll.view') or has_perm(request.session,'payroll.edit') or has_perm(request.session,'payroll.report.view') %}
+                {% if can_payroll %}
                 <div class="dropdown">
-                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300 inline-flex items-center">
+                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition inline-flex items-center">
                         เงินเดือน
                         <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                     </button>
-                    <div class="dropdown-content bg-white">
-                        <a href="/payroll/allowance-types" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ประเภทเงินเพิ่ม</a>
-                        <a href="/payroll/deduction-types" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ประเภทรายการหัก</a>
-                        <a href="/payroll/employee-allowances" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">รายการเงินเพิ่มพนักงาน</a>
-                        <a href="/payroll/employee-deductions" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">รายการหักพนักงาน</a>
-                        <a href="/payroll/salary-structures" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">โครงสร้างเงินเดือน</a>
-                        <a href="/payroll/payroll-runs" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">รอบการจ่ายเงินเดือน</a>
-                        <a href="/payroll/payroll-entries" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">รายงานเงินเดือน</a>
+                    <div class="dropdown-content">
+                        {% if has_perm(request.session,'payroll.edit') %}
+                        <a href="/payroll/allowance-types">ประเภทเงินเพิ่ม</a>
+                        <a href="/payroll/deduction-types">ประเภทรายการหัก</a>
+                        <a href="/payroll/employee-allowances">รายการเงินเพิ่มพนักงาน</a>
+                        <a href="/payroll/employee-deductions">รายการหักพนักงาน</a>
+                        <a href="/payroll/salary-structures">โครงสร้างเงินเดือน</a>
+                        <a href="/payroll/payroll-runs">รอบการจ่ายเงินเดือน</a>
+                        {% endif %}
+                        {% if has_perm(request.session,'payroll.report.view') %}
+                        <a href="/payroll/payroll-entries">รายงานเงินเดือน</a>
+                        {% endif %}
                     </div>
                 </div>
+                {% endif %}
 
+                {# ---------- ห้องประชุม ---------- #}
+                {% set can_meeting = has_perm(request.session,'meeting.view') or has_perm(request.session,'meeting.manage') %}
+                {% if can_meeting %}
                 <div class="dropdown">
-                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300 inline-flex items-center">
-                    ห้องประชุม
-                    <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition inline-flex items-center">
+                        ห้องประชุม
+                        <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                     </button>
-                    <div class="dropdown-content bg-white">
-                    <a href="/meeting/dashboard" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">สรุปภาพรวมจองห้องประชุม</a>
-                    <a href="/meeting/rooms" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ห้องประชุม</a>
-                    <a href="/meeting/bookings" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">การจองห้อง</a>
+                    <div class="dropdown-content">
+                        {% if has_perm(request.session,'meeting.view') %}
+                        <a href="/meeting/dashboard">สรุปภาพรวมจองห้องประชุม</a>
+                        <a href="/meeting/bookings">การจองห้อง</a>
+                        {% endif %}
+                        {% if has_perm(request.session,'meeting.manage') %}
+                        <a href="/meeting/rooms">ห้องประชุม</a>
+                        {% endif %}
                     </div>
                 </div>
+                {% endif %}
 
-                <div class="dropdown">
-                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300 inline-flex items-center">
-                    สรรหาบุคลากร
-                    <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                    </button>
-                    <div class="dropdown-content bg-white">
-                    <a href="/recruitment/dashboard" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">สรุปภาพรวมการสรรหา</a>
-                    <a href="/recruitment/candidates" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">การจัดการผู้สมัคร</a>
-                    </div>
-                </div>
+                {# ---------- ปุ่มเปลี่ยนรหัสผ่าน (ทุกคนที่มีสิทธิ์เฉพาะ) ---------- #}
+                {% if has_perm(request.session,'security.password.change') %}
+                <a href="/security/password" class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition">
+                    เปลี่ยนรหัสผ่าน
+                </a>
+                {% endif %}
 
+                {# ---------- Admin-only: จัดการความปลอดภัยเต็มเมนู ---------- #}
+                {% if has_perm(request.session,'security.manage') %}
                 <div class="dropdown">
-                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition duration-300 inline-flex items-center">
-                    จัดการความปลอดภัย
-                    <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                    <button class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition inline-flex items-center">
+                        จัดการความปลอดภัย
+                        <svg class="fill-current h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                     </button>
-                    <div class="dropdown-content bg-white">
-                    <a href="/security/permissions" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">สิทธิการเข้าถึง</a>
-                    <a href="/security/backup" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">สำรอง/กู้คืนฐานข้อมูล</a>
-                    <a href="/security/password" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">เปลี่ยนรหัสผ่าน</a>
+                    <div class="dropdown-content">
+                        <a href="/security/permissions">สิทธิการเข้าถึง</a>
+                        <a href="/security/backup">สำรอง/กู้คืนฐานข้อมูล</a>
+                        <a href="/security/password">เปลี่ยนรหัสผ่าน</a>
                     </div>
                 </div>
+                {% endif %}
 
                 {% if request.session and request.session.get('emp_id') %}
                 <div class="flex items-center space-x-3 pl-4 border-l border-blue-500">
                     <span class="text-blue-100 text-sm hidden md:inline">
-                    {{ request.session.get('email', 'ผู้ใช้') }}
+                        {{ request.session.get('email', 'ผู้ใช้') }}
                     </span>
-                    <a href="/auth/logout"
-                    class="px-3 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-700 transition">
-                    ออกจากระบบ
+                    <a href="/auth/logout" class="px-3 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-700 transition">
+                        ออกจากระบบ
                     </a>
                 </div>
                 {% else %}
-                <a href="/auth/login"
-                    class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition">
+                <a href="/auth/login" class="text-white hover:text-blue-200 p-2 rounded-md hover:bg-blue-500 transition">
                     เข้าสู่ระบบ
                 </a>
                 {% endif %}
@@ -157,6 +174,7 @@
         </div>
     </nav>
     {% endif %}
+
     <div class="container mx-auto p-4 mt-4">
         {% block content %}{% endblock %}
     </div>
@@ -168,23 +186,17 @@
     </footer>
 
     <script>
-        // General script for dropdowns (if any, or can be removed if not used here)
-        document.querySelectorAll('.dropdown').forEach(dropdown => {
-            dropdown.addEventListener('click', function(event) {
-                // Toggle dropdown content visibility
-                const content = this.querySelector('.dropdown-content');
-                if (content) {
-                    content.style.display = content.style.display === 'block' ? 'none' : 'block';
-                }
-                event.stopPropagation(); // Prevent click from bubbling up and closing other dropdowns
+        document.querySelectorAll('.dropdown').forEach(d => {
+            d.addEventListener('click', function (e) {
+                const c = this.querySelector('.dropdown-content');
+                if (c) { c.style.display = c.style.display === 'block' ? 'none' : 'block'; }
+                e.stopPropagation();
             });
         });
-
-        // Close dropdowns if clicked outside
-        window.addEventListener('click', function(event) {
-            document.querySelectorAll('.dropdown-content').forEach(content => {
-                if (content.style.display === 'block' && !content.closest('.dropdown').contains(event.target)) {
-                    content.style.display = 'none';
+        window.addEventListener('click', function (e) {
+            document.querySelectorAll('.dropdown-content').forEach(c => {
+                if (c.style.display === 'block' && !c.closest('.dropdown').contains(e.target)) {
+                    c.style.display = 'none';
                 }
             });
         });

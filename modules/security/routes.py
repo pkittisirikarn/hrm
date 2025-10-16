@@ -1,6 +1,7 @@
 # modules/security/routes.py
 from fastapi import APIRouter, Depends, Request, Form
-from starlette.templating import Jinja2Templates
+from core.templates import templates
+# from starlette.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
@@ -15,7 +16,7 @@ from .permissions_service import (
 # Routers
 api = APIRouter(prefix="/api/v1/security", tags=["Security API"])
 pages = APIRouter(tags=["Security Pages"])
-templates = Jinja2Templates(directory="templates")
+# templates = Jinja2Templates(directory="templates")
 
 # ----------------------------
 # Page: Roles & Permissions UI
