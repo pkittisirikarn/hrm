@@ -1,100 +1,101 @@
 # modules/security/routes.py
-from fastapi import APIRouter, Depends, Request, HTTPException, Form
+from fastapi import APIRouter, Depends, Request, Form
 from starlette.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from typing import Optional
 
 from database.connection import get_db
-from modules.security.model import AppModule, ModulePermission
-from modules.security.deps import get_current_employee, is_admin
+from .deps import require_perm
+from .perms import compute_user_perms
+from .permissions_service import (
+    list_roles, list_permissions, role_permission_ids,
+    set_role_permission, list_user_roles, set_user_role
+)
 
-# API สำหรับจัดการสิทธิ์ (prefix /api/v1/security)
-api = APIRouter(prefix="/api/v1/security", tags=["security"])
-
-# เพจ UI (ไม่มี prefix)
-pages = APIRouter()
+# Routers
+api = APIRouter(prefix="/api/v1/security", tags=["Security API"])
+pages = APIRouter(tags=["Security Pages"])
 templates = Jinja2Templates(directory="templates")
 
-# ---------------------- Pages ---------------------- #
+# ----------------------------
+# Page: Roles & Permissions UI
+# ----------------------------
+@pages.get("/security/permissions", dependencies=[Depends(require_perm("security.manage"))])
+def permissions_page(request: Request):
+    return templates.TemplateResponse("security/permissions.html", {"request": request})
 
-@pages.get("/data-management/backup")
-def data_mgmt_backup_page(request: Request, me=Depends(get_current_employee)):
-    if not is_admin(me):
-        raise HTTPException(403, "Admins only")
-    return templates.TemplateResponse("data_management/backup.html", {"request": request})
+# ----------------------------
+# Matrix APIs (roles / perms)
+# ----------------------------
+@api.get("/roles", dependencies=[Depends(require_perm("security.manage"))])
+def api_list_roles(db: Session = Depends(get_db)):
+    return {"roles": list_roles(db)}
 
-@pages.get("/security/permissions")
-def page_permissions(request: Request, me=Depends(get_current_employee)):
-    if not is_admin(me):
-        raise HTTPException(403, "Admins only")
-    return templates.TemplateResponse(
-        "security/permissions.html",
-        {"request": request, "modules": [m.value for m in AppModule]},
-    )
+@api.get("/perms", dependencies=[Depends(require_perm("security.manage"))])
+def api_list_perms(db: Session = Depends(get_db)):
+    return {"permissions": list_permissions(db)}
 
-# ---------------------- APIs ---------------------- #
+@api.get("/role-perms/{role_id}", dependencies=[Depends(require_perm("security.manage"))])
+def api_role_perms(role_id: int, db: Session = Depends(get_db)):
+    return {"permission_ids": role_permission_ids(db, role_id)}
 
-@api.get("/employees")
-def list_employees(db: Session = Depends(get_db)):
-    """
-    คืนรายชื่อพนักงานแบบย่อสำหรับ dropdown หน้า permissions
-    """
-    rows = db.execute(text("""
-        SELECT
-            id,
-            COALESCE(first_name,'') AS fn,
-            COALESCE(last_name,'')  AS ln,
-            COALESCE(role,'user')   AS role
-        FROM employees
-        ORDER BY fn, ln
-    """)).fetchall()
-    return [{"id": r.id, "name": f"{r.fn} {r.ln}".strip(), "role": r.role} for r in rows]
-
-@api.get("/permissions")
-def get_permissions(employee_id: int, db: Session = Depends(get_db)):
-    """
-    อ่านสิทธิ์รายโมดูลของพนักงานคนหนึ่ง
-    """
-    items = (
-        db.query(ModulePermission)
-        .filter(ModulePermission.employee_id == employee_id)
-        .all()
-    )
-    return [
-        {
-            "module": p.module.value,
-            "can_view": p.can_view,
-            "can_edit": p.can_edit,
-            "id": p.id,
-        }
-        for p in items
-    ]
-
-@api.post("/permissions/update")
-def update_permissions(
-    employee_id: int = Form(...),
-    modules_view: str = Form(""),
-    modules_edit: str = Form(""),
+@api.post("/role-perms/toggle", dependencies=[Depends(require_perm("security.manage"))])
+def api_toggle_role_perm(
+    request: Request,
+    role_id: int = Form(...),
+    perm_id: int = Form(...),
+    enabled: bool = Form(...),
     db: Session = Depends(get_db),
-    me=Depends(get_current_employee),
 ):
-    from modules.security.deps import is_admin
-    if not is_admin(me):
-        raise HTTPException(403, "Admins only")
+    set_role_permission(db, role_id, perm_id, enabled)
 
-    allow_view = {m for m in (modules_view or "").split(",") if m}
-    allow_edit = {m for m in (modules_edit or "").split(",") if m}
+    # ถ้าเป็น role เดียวกับที่ user ปัจจุบันใช้อยู่ ให้รีเฟรชสิทธิ์ใน session
+    role_name = db.execute(text("SELECT name FROM security_roles WHERE id=:id"), {"id": role_id}).scalar()
+    if role_name and request.session.get("role") == role_name:
+        emp_id = request.session.get("emp_id")
+        request.session["perms"] = list(compute_user_perms(db, emp_id, role_name))
+    return {"ok": True}
 
-    db.query(ModulePermission).filter(ModulePermission.employee_id == employee_id).delete()
-    for m in AppModule:
-        db.add(ModulePermission(
-            employee_id=employee_id,
-            module=m,
-            can_view=(m.value in allow_view) or (m == AppModule.PERSONAL_PROFILE),
-            can_edit=(m.value in allow_edit),
-        ))
-    db.commit()
+# ----------------------------
+# Employees & User-Role mapping
+# ----------------------------
+@api.get("/employees")
+def api_list_employees(db: Session = Depends(get_db),
+                       _ = Depends(require_perm("security.manage"))):
+    rows = db.execute(text("""
+        SELECT id,
+               COALESCE(first_name,'') AS fn,
+               COALESCE(last_name,'')  AS ln,
+               COALESCE(email,'')      AS email,
+               COALESCE(role,'USER')   AS role
+        FROM employees
+        ORDER BY fn, ln, id
+    """)).fetchall()
+    items = []
+    for r in rows:
+        name = f"{r.fn} {r.ln}".strip() or (r.email or f"Employee #{r.id}")
+        items.append({"id": r.id, "name": name, "role": r.role})
+    return items  # ← ส่งเป็น array
+
+@api.get("/user-roles/{user_id}", dependencies=[Depends(require_perm("security.manage"))])
+def api_user_roles(user_id: int, db: Session = Depends(get_db)):
+    return {"role_ids": list_user_roles(db, user_id)}
+
+@api.post("/user-roles/toggle", dependencies=[Depends(require_perm("security.manage"))])
+def api_toggle_user_role(
+    request: Request,
+    user_id: int = Form(...),
+    role_id: int = Form(...),
+    enabled: bool = Form(...),
+    db: Session = Depends(get_db),
+):
+    set_user_role(db, user_id, role_id, enabled)
+
+    # ถ้าแก้ role ของ user ที่กำลังล็อกอิน และเป็น role ที่เขาใช้อยู่ -> รีเฟรชสิทธิ์
+    if user_id == request.session.get("emp_id"):
+        role_name = db.execute(text("SELECT name FROM security_roles WHERE id=:id"), {"id": role_id}).scalar()
+        if role_name and request.session.get("role") == role_name:
+            request.session["perms"] = list(compute_user_perms(db, user_id, role_name))
     return {"ok": True}
 
 __all__ = ["api", "pages"]

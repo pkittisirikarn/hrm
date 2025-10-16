@@ -1,45 +1,39 @@
 # main.py
 import sys, asyncio, os
-import uvicorn
 from types import SimpleNamespace
 
+import uvicorn
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse, JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy import text
 
 from database.base import Base
 from database.connection import create_all_tables, SessionLocal, engine
-from sqlalchemy import text
 
-# --- app modules/routers ---
-from modules.data_management import routes as data_management_routes
-from modules.payroll import routes as payroll_routes
-from modules.time_tracking import routes as time_tracking_routes
-from modules.meeting.routes import api as meeting_api, pages as meeting_pages
-from modules.recruitment.routes import api as recruitment_api, pages as recruitment_pages
-from modules.security.routes import api as security_api, pages as security_pages
-from modules.security.backup_routes import api_backup
-from modules.security.password_routes import api_pw, pages as pw_pages
-from modules.security.bootstrap import ensure_default_admin
-from modules.security.auth_routes import router as auth_router
-
-from modules.data_management.migrations import migrate_employees_contact_columns
-from modules.meeting.migrations import migrate_meeting_rooms_columns, run_startup_migrations
-
-# ---------- Windows loop ----------
+# ----- Windows event loop policy -----
 if sys.platform.startswith("win"):
     try:
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     except Exception:
         pass
 
+# ----- App instance -----
 app = FastAPI(title="HRM System API", version="1.0.0")
 
-# 2) CORS
+# ----- Helpers -----
+def _sess(request: Request):
+    return request.session if "session" in request.scope else {}
+
+def _is_logged_in(request: Request) -> bool:
+    return "session" in request.scope and bool(request.session.get("emp_id"))
+
+# ----- Middlewares -----
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -48,26 +42,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def _is_logged_in(request: Request) -> bool:
-    """อ่านสถานะล็อกอินแบบปลอดภัย (มี session ค่อยอ่านค่า)"""
-    if "session" not in request.scope:
-        return False
-    return bool(request.session.get("emp_id"))
-
-# 3) DEV stub (ไม่แตะ session ถ้ายังไม่มี)
 class DevStubMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if os.environ.get("HRM_DEV_ADMIN") == "1":
-            if not request.session.get("emp_id"):
-                request.session["emp_id"] = 1
-                request.session["role"] = "ADMIN"
-                request.session["email"] = "admin@hrm.local"
-                request.session["name"] = "Dev Admin"
+        sess = _sess(request)
+        if os.environ.get("HRM_DEV_ADMIN") == "1" and sess is not None:
+            if not sess.get("emp_id"):
+                sess["emp_id"] = 1
+                sess["role"] = "ADMIN"
+                sess["email"] = "admin@hrm.local"
+                sess["name"] = "Dev Admin"
             if not hasattr(request.state, "current_user"):
                 request.state.current_user = SimpleNamespace(id=1, role="ADMIN")
         return await call_next(request)
 
-# 4) Auth wall (กันเข้าหน้าอื่นถ้ายังไม่ล็อกอิน) — อนุญาตบาง path
 class AuthWallMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, allow_paths=None, allow_prefixes=None):
         super().__init__(app)
@@ -80,14 +67,14 @@ class AuthWallMiddleware(BaseHTTPMiddleware):
         if path in self.allow_paths or any(path.startswith(p) for p in self.allow_prefixes):
             return await call_next(request)
 
-        if not request.session.get("emp_id"):
+        sess = _sess(request)
+        if not sess or not sess.get("emp_id"):
             if path.startswith("/api/"):
                 return JSONResponse({"detail": "Unauthorized"}, status_code=401)
             return RedirectResponse("/auth/login", status_code=302)
 
         return await call_next(request)
 
-# ใส่สองตัวนี้ “หลัง” SessionMiddleware
 app.add_middleware(DevStubMiddleware)
 app.add_middleware(
     AuthWallMiddleware,
@@ -95,9 +82,7 @@ app.add_middleware(
     allow_prefixes=("/auth/", "/static/", "/favicon", "/docs", "/openapi.json"),
 )
 
-from starlette.middleware.sessions import SessionMiddleware
-# ---------- Middlewares ----------
-# 1) SessionMiddleware ต้องมาก่อนและจะเป็นตัวเติม request.scope["session"]
+# IMPORTANT: ใส่ SessionMiddleware “เป็นตัวสุดท้าย” ที่ add -> ทำให้มันเป็น outermost และมี session ก่อนตัวอื่น
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ.get("SESSION_SECRET", "dev-secret"),
@@ -107,13 +92,41 @@ app.add_middleware(
     https_only=False,
 )
 
-# ---------- Static & Templates ----------
+# ----- Static & Templates -----
 os.makedirs("static/uploads/rooms", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 app.state.templates = templates
 
-# ---------- Routers ----------
+# ----- Routers -----
+from modules.data_management import routes as data_management_routes
+from modules.payroll import routes as payroll_routes
+from modules.time_tracking import routes as time_tracking_routes
+
+from modules.meeting.routes import api as meeting_api, pages as meeting_pages
+from modules.recruitment.routes import api as recruitment_api, pages as recruitment_pages
+
+from modules.security.routes import api as security_api, pages as security_pages
+from modules.security.backup_routes import api_backup, pages as backup_pages
+
+# password routes (export เป็น api_pw เสมอจากไฟล์ที่เราแก้ให้)
+from modules.security.password_routes import api_pw, pages as pw_pages, ensure_password_hash_column
+
+from modules.security.auth_routes import router as auth_router
+from modules.security.bootstrap import ensure_default_admin
+from modules.security.permissions_service import (
+    ensure_security_tables,
+    seed_default_roles_permissions,
+)
+from modules.security.perms import (
+    ensure_permissions_schema,
+    seed_admin_all,
+)
+from modules.security.deps import has_perm
+
+templates.env.globals["has_perm"] = has_perm
+
+# include routers
 app.include_router(meeting_api)
 app.include_router(meeting_pages)
 
@@ -122,32 +135,55 @@ app.include_router(recruitment_pages)
 
 app.include_router(security_api)
 app.include_router(security_pages)
+app.include_router(backup_pages, include_in_schema=False)
 app.include_router(api_backup)
 app.include_router(pw_pages, include_in_schema=False)
 app.include_router(api_pw)
 
-app.include_router(data_management_routes.api_router, prefix="/api/v1/data-management", tags=["Data Management API"])
-app.include_router(payroll_routes.api_router,          prefix="/api/v1/payroll",         tags=["Payroll API"])
+app.include_router(
+    data_management_routes.api_router,
+    prefix="/api/v1/data-management",
+    tags=["Data Management API"],
+)
+app.include_router(payroll_routes.api_router, prefix="/api/v1/payroll", tags=["Payroll API"])
 app.include_router(time_tracking_routes.api_router)
 
 app.include_router(data_management_routes.ui_router, prefix="/data-management", include_in_schema=False)
-app.include_router(payroll_routes.ui_router,         prefix="/payroll",         include_in_schema=False)
-app.include_router(time_tracking_routes.ui_router,   prefix="/time-tracking",   include_in_schema=False)
+app.include_router(payroll_routes.ui_router, prefix="/payroll", include_in_schema=False)
+app.include_router(time_tracking_routes.ui_router, prefix="/time-tracking", include_in_schema=False)
 
-# Auth (รวมเป็น router เดียว)
 app.include_router(auth_router, include_in_schema=False)
 
-# ---------- Startup ----------
+# ----- Startup -----
+from modules.data_management.migrations import migrate_employees_contact_columns
+from modules.meeting.migrations import migrate_meeting_rooms_columns, run_startup_migrations
+
 @app.on_event("startup")
 def on_startup():
+    # 1) สร้างตารางจาก SQLAlchemy models ทั้งหมด
     Base.metadata.create_all(bind=engine)
+
+    # 2) migrations เฉพาะโมดูล meeting (ถ้ามี)
     run_startup_migrations(engine)
 
-    ensure_default_admin()
     print("Creating all database tables...")
     create_all_tables()
     print("Database tables created successfully.")
 
+    # 3) เตรียม schema/ตาราง security “ก่อน” ใช้งาน
+    #    - สร้าง column password_hash
+    #    - สร้างตาราง roles/permissions
+    ensure_password_hash_column()
+    ensure_security_tables(engine)
+    ensure_permissions_schema(engine)
+    with SessionLocal() as db:
+        seed_default_roles_permissions(db)
+    seed_admin_all(engine)
+
+    # 5) สร้าง admin เริ่มต้น (หลังคอลัมน์ password_hash มีแล้ว)
+    ensure_default_admin()
+
+    # 6) migrations อื่น ๆ
     try:
         migrate_employees_contact_columns(engine)
         print("✓ Migrated employees: added email/phone_number if missing.")
@@ -160,7 +196,15 @@ def on_startup():
     except Exception as e:
         print(f"⚠️ Migrate warning (meeting_rooms): {e}")
 
-# ---------- UI routes ----------
+    # 7) normalize สถานะจองห้อง verg หลังมีตารางแน่ ๆ
+    try:
+        with SessionLocal() as db:
+            db.execute(text("UPDATE meeting_bookings SET status='APPROVED' WHERE status='BOOKED'"))
+            db.commit()
+    except Exception as e:
+        print(f"⚠️ Normalize meeting bookings warning: {e}")
+
+# ----- UI routes -----
 @app.get("/", include_in_schema=False)
 async def root(request: Request):
     if _is_logged_in(request):
@@ -173,22 +217,13 @@ def _go_login():
 
 @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
 async def dashboard_page(request: Request):
-    # ใช้ไฟล์ templates/dashboard.html (มีอยู่แล้ว)
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
-    # ถ้าไม่มีไฟล์ จะ 404 จาก /static/favicon.ico (ไม่ใช่ 500)
+    # ถ้าไม่มีไฟล์จะ 404 — แนะนำใส่ static/favicon.ico เพื่อให้ 200
     return RedirectResponse("/static/favicon.ico")
 
-# ---------- Entrypoint ----------
+# ----- Entrypoint -----
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)
-
-# (utility) — ทำความสะอาดสถานะ booking เก่า ๆ
-def _normalize_meeting_booking_statuses():
-    with SessionLocal() as db:
-        db.execute(text("UPDATE meeting_bookings SET status='APPROVED' WHERE status='BOOKED'"))
-        db.commit()
-
-_normalize_meeting_booking_statuses()

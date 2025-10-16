@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Optional, List
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 
 from modules.data_management import models  # ใช้ Enums จาก models.EmployeeStatus
 
@@ -22,9 +22,7 @@ class DepartmentUpdate(BaseModel):
 
 class DepartmentInDB(DepartmentBase):
     id: int = Field(..., gt=0, description="ID ของแผนก")
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # -------------------------------------------------
@@ -42,13 +40,11 @@ class PositionUpdate(BaseModel):
 
 class PositionInDB(PositionBase):
     id: int = Field(..., gt=0, description="ID ของตำแหน่ง")
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # -------------------------------------------------
-# Employee Schemas
+# Employee Schemas (เข้มงวดสำหรับรับข้อมูลเข้า)
 # -------------------------------------------------
 
 class EmployeeBase(BaseModel):
@@ -57,10 +53,8 @@ class EmployeeBase(BaseModel):
     last_name: str = Field(..., min_length=2, max_length=100, description="นามสกุล")
     date_of_birth: date = Field(..., description="วันเกิด (YYYY-MM-DD)")
     address: str = Field(..., description="ที่อยู่")
-    # เก็บเป็น Optional เพื่อไม่บังคับ 13 หลักตอนสร้าง/อัปเดตบางเคส
     id_card_number: Optional[str] = Field(None, min_length=13, max_length=13, description="เลขบัตรประชาชน (13 หลัก)")
     profile_picture_path: Optional[str] = Field(None, description="Path รูปโปรไฟล์")
-    # ปัจจุบันเก็บเป็น Text (JSON string) ใน DB ถ้าจะเปลี่ยนเป็น List[str] ให้ไปแปลงที่ services
     application_documents_paths: Optional[str] = Field(None, description="Path เอกสารสมัครงาน (JSON string)")
     bank_account_number: Optional[str] = Field(None, description="เลขบัญชีธนาคาร")
     bank_name: Optional[str] = Field(None, description="ชื่อธนาคาร")
@@ -102,11 +96,42 @@ class EmployeeUpdate(BaseModel):
     department_id: Optional[int] = Field(None, gt=0, description="ID แผนก")
     position_id: Optional[int] = Field(None, gt=0, description="ID ตำแหน่ง")
 
-class EmployeeInDB(EmployeeBase):
-    id: int = Field(..., gt=0, description="ID ของพนักงาน")
-    # เราเลือกให้เป็น required และไปพรีโหลดความสัมพันธ์ใน services ด้วย joinedload
-    department: DepartmentInDB
-    position: PositionInDB
 
-    class Config:
-        from_attributes = True
+# -------------------------------------------------
+# Employee “Out” (ผ่อนปรนสำหรับส่งออก/แสดงผล)
+# -------------------------------------------------
+
+class EmployeeOut(BaseModel):
+    """
+    ใช้สำหรับ response_model ใน endpoints ที่ 'อ่าน' ข้อมูล เพื่อกัน 500
+    กรณีข้อมูลเก่ามี last_name ว่าง หรืออีเมลเป็นโดเมนพิเศษ (.local)
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    employee_id_number: Optional[str] = None
+    first_name: str = ""         # ไม่บังคับ min_length
+    last_name: str = ""          # ไม่บังคับ min_length
+    date_of_birth: Optional[date] = None
+    address: Optional[str] = None
+    id_card_number: Optional[str] = None
+    profile_picture_path: Optional[str] = None
+    application_documents_paths: Optional[str] = None
+    bank_account_number: Optional[str] = None
+    bank_name: Optional[str] = None
+    email: Optional[str] = None  # เลิกใช้ EmailStr เพื่อรองรับ .local
+    phone_number: Optional[str] = None
+    hire_date: Optional[date] = None
+    termination_date: Optional[date] = None
+    employee_status: Optional[models.EmployeeStatus] = None
+    department_id: Optional[int] = None
+    position_id: Optional[int] = None
+    role: Optional[str] = None
+
+    # ถ้า endpoint ใด pre-load ความสัมพันธ์ไว้ ก็จะ map มาได้
+    department: Optional[DepartmentInDB] = None
+    position: Optional[PositionInDB] = None
+
+# ----- Backward-compat names (สำหรับโค้ดเก่าที่ยังใช้ EmployeeInDB) -----
+EmployeeRead = EmployeeOut
+EmployeeInDB = EmployeeOut

@@ -1,91 +1,202 @@
 {% extends "base.html" %}
-{% block title %}การจัดการสิทธิ์{% endblock %}
-{% block content %}
-<div class="bg-white rounded-lg shadow p-6 space-y-4">
-  <h2 class="text-2xl font-bold">การจัดการสิทธิ์</h2>
+{% block title %}จัดการสิทธิ์{% endblock %}
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-    <label class="block">
-      <div class="text-sm text-gray-600">พนักงาน</div>
-      <select id="emp" class="w-full border rounded-lg px-3 py-2"></select>
-    </label>
-    <div class="md:col-span-2 text-sm text-gray-500 self-end">
-      ติ๊กโมดูลที่ให้สิทธิ์
-      <span class="text-gray-400">(PERSONAL_PROFILE ให้เห็นของตนเองเสมอสำหรับ user)</span>
-    </div>
+{% block content %}
+<div class="bg-white rounded-lg shadow p-6">
+  <h1 class="text-2xl font-bold mb-4">จัดการสิทธิ์ (Roles & Permissions)</h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+  <!-- ซ้าย: Roles -->
+  <div class="md:col-span-1">
+    <h2 class="font-semibold mb-2">Roles</h2>
+    <select id="roleSelect" class="w-full border rounded px-3 py-2"></select>
+    <p class="text-sm text-gray-500 mt-2">เลือก Role เพื่อกำหนด Permission</p>
   </div>
 
-  <div id="perm-list" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
+  <!-- ขวา: Permissions + เลือกพนักงาน -->
+  <div class="md:col-span-2 space-y-6">
+    <!-- Permissions -->
+    <div>
+      <h2 class="font-semibold mb-2">Permissions</h2>
+      <div id="permList" class="space-y-2"></div>
+    </div>
 
-  <div class="flex gap-3">
-    <button id="save" class="px-4 py-2 rounded-lg bg-blue-600 text-white">บันทึก</button>
+    <!-- ย้ายมาที่นี่: กำหนด Role ให้พนักงาน -->
+    <div class="bg-white p-6 rounded-lg shadow">
+      <h2 class="text-xl font-semibold mb-4">กำหนด Role ให้พนักงาน</h2>
+
+      <label class="block text-sm mb-1">พนักงาน</label>
+      <select id="empSelect" class="w-full border rounded p-2 mb-4">
+        <option value="">— เลือกพนักงาน —</option>
+      </select>
+
+      <div id="empRoleList" class="space-y-2">
+        <!-- จะถูกเติมเช็คบ็อกซ์ role จาก JS -->
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- ฝังค่า modules แบบ JSON ปลอดภัย มี fallback เป็น [] -->
-<script id="mods_json" type="application/json">{{ modules | default([]) | tojson }}</script>
+{% endblock %}
 
+{% block scripts %}
 <script>
-(async function(){
-  const empSel = document.getElementById('emp');
-  const permList = document.getElementById('perm-list');
-  const mods = JSON.parse(document.getElementById('mods_json').textContent || '[]');
-
-  // โหลดรายชื่อพนักงาน
-  const resEmp = await fetch('/api/v1/security/employees');
-  if (!resEmp.ok) { alert('โหลดรายชื่อพนักงานไม่สำเร็จ'); return; }
-  const emps = await resEmp.json();
-
-  if (!emps.length) {
-    empSel.innerHTML = '<option value="">-- ไม่มีพนักงาน --</option>';
-    permList.innerHTML = '';
-    return;
+async function api(url, opts = {}) {
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || res.statusText);
   }
+  return res.json();
+}
 
-  empSel.innerHTML = emps.map(e => `<option value="${e.id}">${e.name} (${e.role||'user'})</option>`).join('');
+let roles = [];
+let perms = [];
+let currentRoleId = null;
+let currentRolePermIds = [];
+let currentUserId = null;
 
-  function render(perms){
-    permList.innerHTML = mods.map(m=>{
-      const p = perms.find(x=>x.module===m) || {can_view: m==='personal_profile', can_edit:false};
-      return `
-        <label class="flex items-center gap-3 border rounded-lg p-2">
-          <div class="w-40 font-medium break-words">${m}</div>
-          <div class="flex items-center gap-2">
-            <input type="checkbox" data-k="view" data-m="${m}" ${p.can_view ? 'checked' : ''}/> ดู
-          </div>
-          <div class="flex items-center gap-2">
-            <input type="checkbox" data-k="edit" data-m="${m}" ${p.can_edit ? 'checked' : ''}/> แก้ไข
-          </div>
-        </label>
-      `;
-    }).join('');
-  }
+// ---------- helpers ----------
+function asArray(x) {
+  if (Array.isArray(x)) return x;
+  if (x && Array.isArray(x.items)) return x.items;
+  if (x && Array.isArray(x.data)) return x.data;
+  return []; // กันพลาด
+}
 
-  async function loadPerms(){
-    const id = empSel.value;
-    if (!id) { permList.innerHTML=''; return; }
-    const res = await fetch('/api/v1/security/permissions?employee_id='+id);
-    if (!res.ok) { permList.innerHTML = '<div class="text-red-600">โหลดสิทธิ์ไม่สำเร็จ</div>'; return; }
-    const perms = await res.json();
-    render(perms);
-  }
-
-  empSel.addEventListener('change', loadPerms);
-  await loadPerms();
-
-  document.getElementById('save').addEventListener('click', async ()=>{
-    const id = empSel.value;
-    if (!id) return;
-    const checks = [...permList.querySelectorAll('input[type=checkbox]')];
-    const view = checks.filter(c=>c.dataset.k==='view' && c.checked).map(c=>c.dataset.m);
-    const edit = checks.filter(c=>c.dataset.k==='edit' && c.checked).map(c=>c.dataset.m);
-    const fd = new FormData();
-    fd.append('employee_id', id);
-    fd.append('modules_view', view.join(','));
-    fd.append('modules_edit', edit.join(','));
-    const r = await fetch('/api/v1/security/permissions/update', {method:'POST', body: fd});
-    alert(r.ok ? 'บันทึกแล้ว' : 'ไม่สำเร็จ');
+// ---------- load roles/permissions ----------
+async function loadRoles() {
+  const resp = await api('/api/v1/security/roles');
+  // เดิม: roles = asArray(resp)
+  roles = Array.isArray(resp) ? resp : (resp.roles || []);
+  const sel = document.getElementById('roleSelect');
+  sel.innerHTML = '';
+  roles.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.id;
+    opt.textContent = r.name;
+    sel.appendChild(opt);
   });
+  if (roles.length) {
+    currentRoleId = roles[0].id;
+    sel.value = currentRoleId;
+  }
+}
+
+async function loadPerms() {
+  const resp = await api('/api/v1/security/perms');
+  // เดิม: perms = asArray(resp)
+  perms = Array.isArray(resp) ? resp : (resp.permissions || []);
+}
+
+async function loadRolePerms(roleId) {
+  const resp = await api(`/api/v1/security/role-perms/${roleId}`);
+  // เดิม: currentRolePermIds = asArray(resp.permission_ids ?? resp)
+  currentRolePermIds = Array.isArray(resp) ? resp : (resp.permission_ids || []);
+}
+
+function renderPerms() {
+  const box = document.getElementById('permList');
+  box.innerHTML = '';
+  perms.forEach(p => {
+    const wrap = document.createElement('label');
+    wrap.className = "flex items-center gap-3 border rounded px-3 py-2";
+
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = currentRolePermIds.includes(p.id);
+    chk.addEventListener('change', () => toggleRolePerm(currentRoleId, p.id, chk.checked));
+
+    const txt = document.createElement('div');
+    txt.innerHTML = `<div class="font-medium">${p.code}</div><div class="text-xs text-gray-500">${p.description || ''}</div>`;
+
+    wrap.appendChild(chk);
+    wrap.appendChild(txt);
+    box.appendChild(wrap);
+  });
+}
+
+async function toggleRolePerm(role_id, perm_id, enabled) {
+  const form = new FormData();
+  form.append('role_id', role_id);
+  form.append('perm_id', perm_id);
+  form.append('enabled', enabled ? 'true' : 'false');
+  await api('/api/v1/security/role-perms/toggle', { method: 'POST', body: form });
+  if (enabled) {
+    if (!currentRolePermIds.includes(perm_id)) currentRolePermIds.push(perm_id);
+  } else {
+    currentRolePermIds = currentRolePermIds.filter(x => x !== perm_id);
+  }
+}
+
+// ---------- employees & user roles ----------
+async function fetchEmployees() {
+  const resp = await api('/api/v1/security/employees');
+  const data = asArray(resp);
+
+  const sel = document.getElementById('empSelect');
+  sel.innerHTML = '<option value="">— เลือกพนักงาน —</option>';
+  data.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.id;
+    opt.textContent = e.name || `Employee #${e.id}`;
+    sel.appendChild(opt);
+  });
+}
+
+async function loadUserRoles(userId) {
+  if (!userId) return;
+  const data = await api(`/api/v1/security/user-roles/${userId}`);
+  const roleIds = asArray(data.role_ids ?? data);
+
+  // เช็คบ็อกซ์รายการ role สำหรับ user
+  const box = document.getElementById('empRoleList');
+  box.innerHTML = '';
+  roles.forEach(r => {
+    const wrap = document.createElement('label');
+    wrap.className = "flex items-center gap-3 border rounded px-3 py-2";
+
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.checked = roleIds.includes(r.id);
+    chk.addEventListener('change', () => toggleUserRole(userId, r.id, chk.checked));
+
+    const txt = document.createElement('div');
+    txt.innerHTML = `<div class="font-medium">${r.name}</div>`;
+
+    wrap.appendChild(chk);
+    wrap.appendChild(txt);
+    box.appendChild(wrap);
+  });
+}
+
+async function toggleUserRole(user_id, role_id, enabled) {
+  const form = new FormData();
+  form.append('user_id', user_id);
+  form.append('role_id', role_id);
+  form.append('enabled', enabled ? 'true' : 'false');
+  await api('/api/v1/security/user-roles/toggle', { method: 'POST', body: form });
+}
+
+// ---------- events ----------
+document.getElementById('roleSelect').addEventListener('change', async (e) => {
+  currentRoleId = parseInt(e.target.value, 10);
+  await loadRolePerms(currentRoleId);
+  renderPerms();
+});
+
+document.getElementById('empSelect').addEventListener('change', async (e) => {
+  currentUserId = parseInt(e.target.value || '0', 10) || null;
+  await loadUserRoles(currentUserId);
+});
+
+// ---------- init ----------
+(async function init(){
+  await loadRoles();
+  await loadPerms();
+  if (currentRoleId) await loadRolePerms(currentRoleId);
+  renderPerms();
+  await fetchEmployees();
 })();
 </script>
 {% endblock %}

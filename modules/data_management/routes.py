@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import List
 import os, shutil, datetime
+from .schemas import EmployeeOut
 
 from database.connection import get_db
 from modules.data_management import schemas, services

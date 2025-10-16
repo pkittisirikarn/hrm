@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from database.connection import get_db
 from modules.security.passwords import verify_password
+from modules.security.deps import compute_user_perms
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -32,25 +33,24 @@ def do_login(
 
     row = db.execute(
         text("""
-            SELECT id,
-                   email,
-                   COALESCE(password_hash, '') AS password_hash,
-                   COALESCE(role, 'ADMIN')     AS role
-            FROM employees
-            WHERE email = :email
-        """),
-        {"email": user_input},
+            SELECT id, email,
+                   COALESCE(password_hash,'') AS password_hash,
+                   COALESCE(role,'ADMIN')     AS role
+            FROM employees WHERE email=:email
+        """), {"email": user_input}
     ).mappings().first()
 
     if not row or not verify_password(password, row["password_hash"]):
         raise HTTPException(status_code=400, detail="อีเมลหรือรหัสผ่านไม่ถูกต้อง")
 
-    # set session
     request.session["emp_id"] = row["id"]
     request.session["email"]  = row["email"]
     request.session["role"]   = row["role"]
 
-    return RedirectResponse("/dashboard", status_code=302)
+    # 👇 คำนวณสิทธิ์ของ user แล้วเก็บใน session
+    request.session["perms"] = list(compute_user_perms(db, row["id"], row["role"]))
+
+    return RedirectResponse("/", status_code=302)
 
 @router.get("/logout")
 def logout(request: Request):

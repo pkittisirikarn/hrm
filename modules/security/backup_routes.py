@@ -1,24 +1,33 @@
+# modules/security/backup_routes.py
 import os, shutil, glob
 from datetime import datetime
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Request
 from fastapi.responses import FileResponse
-from modules.security.deps import get_current_employee
+from starlette.templating import Jinja2Templates
+from .deps import require_perm, get_current_employee, is_admin
 
-api_backup = APIRouter(prefix="/api/v1/security/db", tags=["security-db"])
+api_backup = APIRouter(prefix="/api/v1/security/db", tags=["Security DB API"])
+pages = APIRouter(tags=["Security DB Pages"])
+
 BACKUP_DIR = "backups"
-DB_PATH = "hrm.db"  # ปรับถ้าฐานอยู่ที่อื่น
+DB_PATH = "hrm.db"
 os.makedirs(BACKUP_DIR, exist_ok=True)
+
+@pages.get("/security/backup")
+def backup_page(request: Request, _=Depends(require_perm("security.manage"))):
+    templates = Jinja2Templates(directory="templates")
+    return templates.TemplateResponse("security/backup.html", {"request": request})
 
 @api_backup.get("/backups")
 def list_backups(me=Depends(get_current_employee)):
-    if getattr(me, "role", "user") != "admin":
+    if not is_admin(me):
         raise HTTPException(403, "Admins only")
     files = sorted(glob.glob(os.path.join(BACKUP_DIR, "*.sqlite")), reverse=True)
     return [{"name": os.path.basename(f), "size": os.path.getsize(f)} for f in files]
 
 @api_backup.post("/backup")
 def make_backup(me=Depends(get_current_employee)):
-    if getattr(me, "role", "user") != "admin":
+    if not is_admin(me):
         raise HTTPException(403, "Admins only")
     if not os.path.exists(DB_PATH):
         raise HTTPException(500, "DB file not found")
@@ -29,7 +38,7 @@ def make_backup(me=Depends(get_current_employee)):
 
 @api_backup.get("/download")
 def download_backup(name: str, me=Depends(get_current_employee)):
-    if getattr(me, "role", "user") != "admin":
+    if not is_admin(me):
         raise HTTPException(403, "Admins only")
     path = os.path.join(BACKUP_DIR, name)
     if not os.path.isfile(path):
@@ -38,7 +47,7 @@ def download_backup(name: str, me=Depends(get_current_employee)):
 
 @api_backup.post("/restore")
 def restore_backup(file: UploadFile = File(None), name: str = "", me=Depends(get_current_employee)):
-    if getattr(me, "role", "user") != "admin":
+    if not is_admin(me):
         raise HTTPException(403, "Admins only")
     ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
     safe = os.path.join(BACKUP_DIR, f"auto-before-restore-{ts}.sqlite")
@@ -57,3 +66,5 @@ def restore_backup(file: UploadFile = File(None), name: str = "", me=Depends(get
     else:
         raise HTTPException(400, "Provide backup file or name")
     return {"ok": True, "notice": "Restart the app to reload connections"}
+
+__all__ = ["api_backup", "pages"]

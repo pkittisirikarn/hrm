@@ -1,68 +1,53 @@
 {% extends "base.html" %}
 {% block title %}สำรอง/กู้คืนฐานข้อมูล{% endblock %}
 {% block content %}
-<div class="bg-white rounded-lg shadow p-6 space-y-4">
-  <h2 class="text-2xl font-bold">สำรอง/กู้คืนฐานข้อมูล</h2>
+<div class="bg-white rounded shadow p-4">
+  <h1 class="text-xl font-semibold mb-4">สำรอง/กู้คืนฐานข้อมูล</h1>
 
-  <div class="flex gap-3">
-    <button id="btn-backup" class="px-4 py-2 rounded-lg bg-emerald-600 text-white">สร้าง Backup</button>
-    <form id="f-restore-upload" class="flex items-center gap-2" enctype="multipart/form-data">
-      <input type="file" id="restore-file" name="file" class="border rounded-lg px-3 py-2" accept=".sqlite,.db" />
-      <button class="px-4 py-2 rounded-lg bg-blue-600 text-white">Restore (อัปโหลด)</button>
-    </form>
+  <div class="flex items-center gap-2 mb-4">
+    <button id="btnBackup" class="px-3 py-2 bg-blue-600 text-white rounded">สร้างไฟล์สำรอง</button>
+    <input id="fileUp" type="file" class="ml-2">
+    <button id="btnRestoreUpload" class="px-3 py-2 bg-amber-600 text-white rounded">กู้คืนจากไฟล์</button>
   </div>
 
-  <div class="mt-4">
-    <div class="font-semibold mb-2">ไฟล์ Backup ที่มี</div>
-    <table class="min-w-full text-sm">
-      <thead><tr><th class="text-left py-2">ไฟล์</th><th class="text-left py-2">ขนาด</th><th></th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </div>
+  <h2 class="font-semibold mb-2">ไฟล์สำรอง</h2>
+  <ul id="list" class="list-disc pl-6 text-sm"></ul>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-(async function(){
-  async function load(){
-    const res = await fetch('/api/v1/security/db/backups');
-    if(!res.ok){ alert('ต้องเป็น admin เท่านั้น'); return; }
-    const rows = await res.json();
-    const tb = document.getElementById('rows');
-    tb.innerHTML = rows.map(r=>`
-      <tr class="border-b">
-        <td class="py-2">${r.name}</td>
-        <td class="py-2">${r.size} bytes</td>
-        <td class="py-2">
-          <a class="text-blue-600 hover:underline" href="/api/v1/security/db/download?name=${encodeURIComponent(r.name)}">ดาวน์โหลด</a>
-          <button data-restore="${r.name}" class="ml-3 text-red-600 hover:underline">Restore</button>
-        </td>
-      </tr>
-    `).join('');
-    tb.querySelectorAll('button[data-restore]').forEach(b=>{
-      b.addEventListener('click', async ()=>{
-        const name = b.getAttribute('data-restore');
-        const fd = new FormData();
-        fd.append('name', name);
-        const r = await fetch('/api/v1/security/db/restore', {method:'POST', body:fd});
-        alert(r.ok ? 'Restore สำเร็จ โปรดรีสตาร์ทแอป' : 'Restore ไม่สำเร็จ');
-      });
-    });
-  }
+async function api(url, opts={}){ const r=await fetch(url,opts); if(!r.ok) throw new Error(await r.text()); return r.json(); }
 
-  document.getElementById('btn-backup').addEventListener('click', async ()=>{
-    const r = await fetch('/api/v1/security/db/backup', {method:'POST'});
-    alert(r.ok ? 'สร้าง Backup แล้ว' : 'ไม่สำเร็จ');
-    load();
+async function refresh(){
+  const rows = await api('/api/v1/security/db/backups');
+  const ul = document.getElementById('list'); ul.innerHTML='';
+  rows.forEach(x=>{
+    const li = document.createElement('li');
+    li.innerHTML = `
+      ${x.name} (${(x.size/1024).toFixed(1)} KB)
+      <a class="text-blue-600 underline ml-2" href="/api/v1/security/db/download?name=${encodeURIComponent(x.name)}">ดาวน์โหลด</a>
+      <button data-name="${x.name}" class="restore-name text-amber-700 underline ml-2">กู้คืน</button>
+    `;
+    ul.appendChild(li);
   });
-
-  document.getElementById('f-restore-upload').addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const r = await fetch('/api/v1/security/db/restore', {method:'POST', body: fd});
-    alert(r.ok ? 'Restore จากไฟล์สำเร็จ โปรดรีสตาร์ทแอป' : 'Restore ไม่สำเร็จ');
+  document.querySelectorAll('.restore-name').forEach(btn=>{
+    btn.onclick = async () => {
+      const fd = new FormData(); fd.append('name', btn.dataset.name);
+      await api('/api/v1/security/db/restore', { method:'POST', body: fd });
+      alert('กู้คืนแล้ว กรุณา restart แอปเพื่อให้ connection รีโหลดใหม่');
+    };
   });
+}
 
-  load();
-})();
+document.getElementById('btnBackup').onclick = async() => { await api('/api/v1/security/db/backup', {method:'POST'}); await refresh(); };
+document.getElementById('btnRestoreUpload').onclick = async() => {
+  const f = document.getElementById('fileUp').files[0];
+  if(!f){ alert('เลือกไฟล์ก่อน'); return; }
+  const fd = new FormData(); fd.append('file', f);
+  await api('/api/v1/security/db/restore', { method:'POST', body: fd });
+  alert('กู้คืนแล้ว กรุณา restart แอปเพื่อให้ connection รีโหลดใหม่');
+};
+refresh();
 </script>
 {% endblock %}

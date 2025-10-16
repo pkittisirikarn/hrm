@@ -1,44 +1,36 @@
 # modules/security/deps.py
-from types import SimpleNamespace
 from fastapi import Depends, HTTPException, Request
+from types import SimpleNamespace
 from sqlalchemy.orm import Session
-from sqlalchemy import text, inspect
 from database.connection import get_db
+from .perms import compute_user_perms
 
-def _has_column(table: str, col: str, request=None) -> bool:
-    try:
-        insp = inspect(request.app.state.db_engine if hasattr(request.app.state, "db_engine") else None)
-    except Exception:
-        insp = inspect(Depends(get_db))
-    try:
-        return any(c["name"] == col for c in inspect(Depends(get_db)).get_columns(table))
-    except Exception:
-        # fallback แบบไม่ใช้ inspector ที่ app เก็บไว้
-        return True  # ถ้าสงสัย ให้ถือว่ามี (จะ select ผ่าน text ได้หากมีจริง)
-    
-def get_current_employee(request: Request, db: Session = Depends(get_db)):
-    emp_id = request.session.get("emp_id")
-    if not emp_id:
-        raise HTTPException(401, "Unauthorized")
-
-    # ดึง role / email / name ขั้นต่ำพอใช้
-    cols = ["id", "first_name", "last_name", "email"]
-    # ถ้ามีคอลัมน์ role จะดึงด้วย (โปรเจคคุณมี)
-    cols.append("role")
-
-    sql = f"SELECT {', '.join(cols)} FROM employees WHERE id=:id LIMIT 1"
-    row = db.execute(text(sql), {"id": emp_id}).mappings().first()
-    if not row:
-        raise HTTPException(401, "Unauthorized")
-
+def get_current_employee(request: Request) -> SimpleNamespace:
     return SimpleNamespace(
-        id=row["id"],
-        first_name=row.get("first_name") or "",
-        last_name=row.get("last_name") or "",
-        email=row.get("email") or "",
-        role=row.get("role") or "user",
-        name=((row.get("first_name") or "") + " " + (row.get("last_name") or "")).strip(),
+        id=request.session.get("emp_id"),
+        role=request.session.get("role", "USER"),
+        email=request.session.get("email"),
+        name=request.session.get("name"),
     )
 
-def is_admin(me) -> bool:
-    return (getattr(me, "role", None) or "").upper() == "ADMIN"
+def is_admin(me: SimpleNamespace) -> bool:
+    return (getattr(me, "role", "") or "").upper() == "ADMIN"
+
+def has_perm(request: Request, code: str, db: Session) -> bool:
+    # ADMIN ผ่านทุกสิทธิ์
+    if (request.session.get("role") or "").upper() == "ADMIN":
+        return True
+    perms = request.session.get("perms")
+    if not perms:
+        emp_id = request.session.get("emp_id")
+        role = request.session.get("role", "USER")
+        perms = list(compute_user_perms(db, emp_id, role))
+        request.session["perms"] = perms
+    return code in perms
+
+def require_perm(code: str):
+    def _dep(request: Request, db: Session = Depends(get_db)):
+        if not has_perm(request, code, db):
+            raise HTTPException(403, "Forbidden")
+        return True
+    return _dep
